@@ -1,14 +1,10 @@
 const express = require('express');
-const router = express.Router();
-const {
-  getShippingZones, // تم تغيير getShippingCompanies إلى getShippingZones
-  calculateShipping
-} = require('../controllers/shippingController');
-const auth = require('../middleware/auth');
+const { getShippingMethods } = require('../controllers/shippingController');
 
-// مناطق الشحن متاحة للجميع
-router.get('/zones', getShippingZones); // تم تعديل المسار
-// حساب الشحن يحتاج مصادقة
-router.post('/calculate', auth, calculateShipping);
+const router = express.Router();
+
+// المسار: GET /api/shipping/methods
+// الوصف: جلب طرق الشحن المتاحة والأسعار
+router.get('/methods', getShippingMethods);
 
 module.exports = router;

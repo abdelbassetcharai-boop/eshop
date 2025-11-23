@@ -1,141 +1,133 @@
 import React, { useState } from 'react';
-import { NavLink, Navigate } from 'react-router-dom';
-// المسار الصحيح: من features/auth إلى context/
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-// المسار الصحيح: من features/auth إلى components/ui/
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { UserPlus } from 'lucide-react';
+import { toast } from 'react-toastify';
 
-/**
- * مكون تسجيل مستخدم جديد (Register Page)
- * يعرض نموذج إدخال الاسم والبريد وكلمة المرور ويتعامل مع منطق التسجيل.
- */
 const Register = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('customer'); // الافتراضي
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [generalError, setGeneralError] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, isAuthenticated } = useAuth();
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-  // إذا كان المستخدم مصادقاً بالفعل، أعد التوجيه إلى الصفحة الرئيسية
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  // معالجة أخطاء التحقق من الـ Backend
-  const handleErrors = (err) => {
-    setGeneralError(err.message);
-    const newErrors = {};
-    if (err.details) {
-        err.details.forEach(detail => {
-            // تحويل "field" إلى "field" للعرض تحت الحقل المقابل
-            newErrors[detail.field] = detail.message;
-        });
-    }
-    setErrors(newErrors);
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErrors({});
-    setGeneralError(null);
 
-    try {
-      await register(name, email, password, role);
-      // التوجيه يتم تلقائياً عن طريق Navigate في الأعلى
-    } catch (err) {
-      console.error('Register Error:', err);
-      handleErrors(err);
-    } finally {
-      setLoading(false);
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("كلمات المرور غير متطابقة");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // تجهيز البيانات للإرسال (استبعاد تأكيد كلمة المرور)
+    const userData = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password
+    };
+
+    const success = await register(userData);
+    setIsSubmitting(false);
+
+    if (success) {
+      navigate('/');
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 lg:mt-20">
-      <div
-        className="p-8 lg:p-10 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border-t-4 transition duration-300"
-        style={{ borderColor: 'var(--primary-color)' }}
-      >
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800 dark:text-gray-100" style={{ fontFamily: 'var(--font-family)' }}>
-          إنشاء حساب جديد
-        </h2>
-
-        {/* عرض رسالة خطأ عامة */}
-        {generalError && (
-          <div className="text-red-500 text-sm mb-6 bg-red-100 dark:bg-red-900 p-4 rounded-xl border border-red-300 dark:border-red-700 font-medium">
-            {generalError}
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+            <UserPlus className="h-6 w-6 text-green-600" />
           </div>
-        )}
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            إنشاء حساب جديد
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            انضم إلينا واستمتع بأفضل العروض
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ direction: 'rtl' }}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <Input
+              label="الاسم الكامل"
+              name="name"
+              type="text"
+              required
+              placeholder="محمد أحمد"
+              value={formData.name}
+              onChange={handleChange}
+            />
 
-          <Input
-            label="الاسم الكامل"
-            type="text"
-            placeholder="ادخل اسمك"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            error={errors.name}
-            required
-          />
+            <Input
+              label="البريد الإلكتروني"
+              name="email"
+              type="email"
+              required
+              placeholder="name@example.com"
+              value={formData.email}
+              onChange={handleChange}
+            />
 
-          <Input
-            label="البريد الإلكتروني"
-            type="email"
-            placeholder="ادخل بريدك الإلكتروني"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={errors.email}
-            required
-          />
+            <Input
+              label="كلمة المرور"
+              name="password"
+              type="password"
+              required
+              placeholder="••••••••"
+              value={formData.password}
+              onChange={handleChange}
+            />
 
-          <Input
-            label="كلمة المرور"
-            type="password"
-            placeholder="كلمة المرور (8 أحرف كحد أدنى)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={errors.password}
-            required
-          />
-
-          {/* حقل اختيار الدور (اختياري) */}
-          <div className="mb-4">
-            <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-              دور المستخدم
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="shadow-sm border border-gray-300 dark:border-gray-600 rounded-xl w-full py-3 px-4 text-gray-700 dark:text-gray-200 dark:bg-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] transition"
-              style={{ borderRadius: 'var(--border-radius)' }}
-            >
-              <option value="customer">عميل (للتسوق)</option>
-              <option value="vendor">بائع (لإدارة المنتجات)</option>
-            </select>
+             <Input
+              label="تأكيد كلمة المرور"
+              name="confirmPassword"
+              type="password"
+              required
+              placeholder="••••••••"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+            />
           </div>
 
-          <div className="flex flex-col space-y-4 mt-6">
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={loading}
-              disabled={loading}
-            >
-              إنشاء الحساب
-            </Button>
-
-            <NavLink to="/login" className="inline-block align-baseline font-semibold text-sm text-center text-gray-600 dark:text-gray-400 hover:text-[var(--primary-color)] transition duration-150">
-              لدي حساب بالفعل؟ تسجيل الدخول
-            </NavLink>
-          </div>
+          <Button
+            type="submit"
+            className="w-full bg-green-600 hover:bg-green-700 focus:ring-green-500"
+            size="lg"
+            isLoading={isSubmitting}
+          >
+            تسجيل
+          </Button>
         </form>
+
+        <div className="text-center mt-4">
+           <p className="text-sm text-gray-600">
+             لديك حساب بالفعل؟{' '}
+             <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
+               سجل دخولك هنا
+             </Link>
+           </p>
+        </div>
       </div>
     </div>
   );

@@ -1,76 +1,58 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const ErrorResponse = require('../utils/errorResponse');
+const asyncHandler = require('../utils/asyncHandler');
 
-// إضافة تقييم لمنتج
-const addReview = async (req, res) => {
-  const { product_id } = req.params;
-  const user_id = req.user.id;
+// @desc    Get reviews for a product
+// @route   GET /api/products/:productId/reviews
+// @access  Public
+exports.getReviews = asyncHandler(async (req, res, next) => {
+  const { productId } = req.params;
+
+  // جلب التقييمات ودمجها مع جدول المستخدمين لعرض اسم المعلق
+  const query = `
+    SELECT r.id, r.rating, r.comment, r.created_at, u.name as user_name
+    FROM reviews r
+    JOIN users u ON r.user_id = u.id
+    WHERE r.product_id = $1
+    ORDER BY r.created_at DESC
+  `;
+
+  const result = await pool.query(query, [productId]);
+
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    data: result.rows
+  });
+});
+
+// @desc    Create review
+// @route   POST /api/products/:productId/reviews
+// @access  Private
+exports.createReview = asyncHandler(async (req, res, next) => {
   const { rating, comment } = req.body;
+  const { productId } = req.params;
+  const userId = req.user.id;
 
-  const client = await pool.connect();
+  // 1. التحقق مما إذا كان المستخدم قد قيم المنتج سابقاً
+  const checkQuery = 'SELECT * FROM reviews WHERE user_id = $1 AND product_id = $2';
+  const checkResult = await pool.query(checkQuery, [userId, productId]);
 
-  try {
-    await client.query('BEGIN');
-
-    // 1. التحقق: هل اشترى المستخدم هذا المنتج ولديه طلب مكتمل؟
-    const hasPurchased = await client.query(`
-      SELECT o.id
-      FROM orders o
-      JOIN order_items oi ON o.id = oi.order_id
-      WHERE o.user_id = $1
-      AND oi.product_id = $2
-      AND o.status = 'completed'
-      LIMIT 1
-    `, [user_id, product_id]);
-
-    if (hasPurchased.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(403).json({
-        success: false,
-        error: 'You can only review products you have purchased and completed.'
-      });
-    }
-
-    // 2. التحقق: هل سبق أن ترك المستخدم تقييماً لهذا المنتج؟ (UNIQUE constraint)
-    const existingReview = await client.query(
-      'SELECT id FROM reviews WHERE user_id = $1 AND product_id = $2',
-      [user_id, product_id]
-    );
-
-    if (existingReview.rows.length > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        success: false,
-        error: 'You have already reviewed this product.'
-      });
-    }
-
-    // 3. إضافة التقييم
-    const result = await client.query(
-      `INSERT INTO reviews (product_id, user_id, rating, comment)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [product_id, user_id, rating, comment]
-    );
-
-    await client.query('COMMIT');
-    res.status(201).json({
-      success: true,
-      message: 'Review added successfully',
-      review: result.rows[0]
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Add review error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  } finally {
-    client.release();
+  if (checkResult.rows.length > 0) {
+    return next(new ErrorResponse('Product already reviewed', 400));
   }
-};
 
-module.exports = {
-  addReview
-};
+  // 2. إدراج التقييم الجديد
+  const insertQuery = `
+    INSERT INTO reviews (user_id, product_id, rating, comment)
+    VALUES ($1, $2, $3, $4)
+    RETURNING *
+  `;
+
+  const result = await pool.query(insertQuery, [userId, productId, rating, comment]);
+
+  res.status(201).json({
+    success: true,
+    data: result.rows[0]
+  });
+});

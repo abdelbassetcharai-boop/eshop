@@ -1,14 +1,11 @@
 const express = require('express');
+const { processPayment } = require('../controllers/paymentController');
+const { protect } = require('../middleware/auth');
+
 const router = express.Router();
-const {
-  createPaymentIntent,
-  confirmPayment
-} = require('../controllers/paymentController');
-const auth = require('../middleware/auth');
 
-router.use(auth);
-
-router.post('/create-intent', createPaymentIntent);
-router.post('/confirm', confirmPayment);
+// المسار: POST /api/payments
+// الوصف: معالجة دفع لطلب معين (يتطلب تسجيل دخول)
+router.post('/', protect, processPayment);
 
 module.exports = router;

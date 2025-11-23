@@ -1,18 +1,26 @@
 const express = require('express');
-const router = express.Router();
 const {
+  getAddresses,
   addAddress,
-  getUserAddresses,
   updateAddress,
   deleteAddress
 } = require('../controllers/addressController');
-const auth = require('../middleware/auth');
 
-router.use(auth);
+const { protect } = require('../middleware/auth');
 
-router.post('/', addAddress);
-router.get('/', getUserAddresses);
-router.put('/:id', updateAddress);
-router.delete('/:id', deleteAddress);
+const router = express.Router();
+
+// تطبيق الحماية على جميع المسارات (يجب أن يكون المستخدم مسجلاً)
+router.use(protect);
+
+// المسار: /api/addresses
+router.route('/')
+  .get(getAddresses) // عرض كل العناوين
+  .post(addAddress); // إضافة عنوان جديد
+
+// المسار: /api/addresses/:id
+router.route('/:id')
+  .put(updateAddress)    // تعديل عنوان موجود
+  .delete(deleteAddress); // حذف عنوان
 
 module.exports = router;

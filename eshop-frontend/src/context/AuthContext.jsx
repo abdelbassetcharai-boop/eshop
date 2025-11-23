@@ -1,107 +1,121 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-// استيراد خدمات المصادقة من ملف الـ API رقم 2
-import { loginApi, registerApi, getProfileApi } from '../api/authApi';
-// استيراد دالة تعيين التوكن من ملف الـ API رقم 1
-import { setAuthToken } from '../api/api';
+import { createContext, useState, useEffect, useContext } from 'react';
+import { authApi } from '../api/authApi';
+import { toast } from 'react-toastify';
 
 const AuthContext = createContext();
 
-/**
- * يوفر الوصول إلى حالة المصادقة ومعلومات المستخدم (بما في ذلك الدور).
- */
-const AuthProvider = ({ children }) => {
-  // جلب التوكن من التخزين المحلي عند التحميل الأولي
-  const initialToken = localStorage.getItem('token');
-  const [token, setToken] = useState(initialToken);
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!initialToken);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // تأثير جانبي لتعيين التوكن وجلب الملف الشخصي عند تحميل التطبيق أو تغيير التوكن
-  useEffect(() => {
-    // تعيين التوكن في Axios Header لجميع الطلبات
-    setAuthToken(token);
-    if (token) {
-      fetchProfile();
-    } else {
-      setIsLoading(false);
+  // دالة للتحقق من المستخدم عند تحميل الصفحة
+  const loadUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
     }
-  }, [token]);
 
-  // جلب بيانات المستخدم بعد تسجيل الدخول أو عند تحميل الصفحة
-  const fetchProfile = async () => {
     try {
-      const response = await getProfileApi();
-      setUser(response.user);
-      setIsAuthenticated(true);
+      const res = await authApi.getMe();
+      if (res.success) {
+        setUser(res.data);
+        setIsAuthenticated(true);
+      }
     } catch (error) {
-      console.error('Failed to fetch profile. Token might be invalid.', error);
-      // مسح التوكن غير الصالح
-      logout();
+      console.error('Load user failed', error);
+      localStorage.removeItem('token');
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  /**
-   * تسجيل دخول المستخدم.
-   */
-  const login = async (email, password) => {
-    const response = await loginApi({ email, password });
-    const { token: newToken, user: userData } = response;
+  useEffect(() => {
+    loadUser();
+  }, []);
 
-    localStorage.setItem('token', newToken);
-    setToken(newToken);
-    setUser(userData);
-    setIsAuthenticated(true);
-    return userData;
+  const register = async (userData) => {
+    try {
+      const res = await authApi.register(userData);
+      if (res.success) {
+        localStorage.setItem('token', res.token);
+        setUser(res.user);
+        setIsAuthenticated(true);
+        toast.success('تم التسجيل بنجاح! 🎉');
+        return true;
+      }
+    } catch (error) {
+      const message = error.response?.data?.error || 'فشل التسجيل';
+      toast.error(message);
+      return false;
+    }
   };
 
-  /**
-   * تسجيل مستخدم جديد.
-   */
-  const register = async (name, email, password) => {
-    const response = await registerApi({ name, email, password });
-    // يتم تسجيل الدخول تلقائياً بعد التسجيل
-    const { token: newToken, user: userData } = response;
-
-    localStorage.setItem('token', newToken);
-    setToken(newToken);
-    setUser(userData);
-    setIsAuthenticated(true);
-    return userData;
+  const login = async (credentials) => {
+    try {
+      const res = await authApi.login(credentials);
+      if (res.success) {
+        localStorage.setItem('token', res.token);
+        setUser(res.user);
+        setIsAuthenticated(true);
+        toast.success('مرحباً بعودتك! 👋');
+        return true;
+      }
+    } catch (error) {
+      const message = error.response?.data?.error || 'فشل تسجيل الدخول';
+      toast.error(message);
+      return false;
+    }
   };
 
-  /**
-   * تسجيل الخروج وإزالة التوكن من كل مكان.
-   */
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.error(err);
+    }
     localStorage.removeItem('token');
-    setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    setAuthToken(null); // تحديث Axios Header
+    toast.info('تم تسجيل الخروج');
+    window.location.href = '/login';
+  };
+
+  const updateProfile = async (details) => {
+    try {
+      const res = await authApi.updateDetails(details);
+      if (res.success) {
+        setUser(res.data);
+        toast.success('تم تحديث الملف الشخصي');
+        return true;
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'فشل التحديث');
+      return false;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    isAuthenticated,
+    register,
+    login,
+    logout,
+    updateProfile,
+    checkAuth: loadUser // تصدير الدالة لإعادة التحقق يدوياً إذا لزم الأمر
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      isAuthenticated,
-      isLoading,
-      login,
-      register,
-      logout,
-      fetchProfile
-    }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
 
-/**
- * Hook مخصص للوصول السهل إلى سياق المصادقة.
- */
-const useAuth = () => useContext(AuthContext);
-
-export { AuthProvider, useAuth };
+export default AuthContext;

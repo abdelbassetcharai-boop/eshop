@@ -1,130 +1,101 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const ErrorResponse = require('../utils/errorResponse');
+const asyncHandler = require('../utils/asyncHandler');
 
-// إضافة عنوان جديد
-const addAddress = async (req, res) => {
-  try {
-    const user_id = req.user.id;
-    const { title, address, city, phone } = req.body;
+// @desc    Get all user addresses
+// @route   GET /api/addresses
+// @access  Private
+exports.getAddresses = asyncHandler(async (req, res, next) => {
+  const query = 'SELECT * FROM user_addresses WHERE user_id = $1 ORDER BY created_at DESC';
+  const result = await pool.query(query, [req.user.id]);
 
-    const result = await pool.query(
-      `INSERT INTO user_addresses
-       (user_id, title, address, city, phone)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [user_id, title, address, city, phone]
-    );
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    data: result.rows,
+  });
+});
 
-    res.status(201).json({
-      success: true,
-      message: 'Address added successfully',
-      address: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Add address error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+// @desc    Add new address
+// @route   POST /api/addresses
+// @access  Private
+exports.addAddress = asyncHandler(async (req, res, next) => {
+  const { address_line1, address_line2, city, postal_code, country, phone } = req.body;
+
+  // التحقق من الحقول المطلوبة (يمكن أيضاً استخدام Joi هنا)
+  if (!address_line1 || !city || !country) {
+    return next(new ErrorResponse('Please provide address line 1, city and country', 400));
   }
-};
 
-// الحصول على عناوين المستخدم
-const getUserAddresses = async (req, res) => {
-  try {
-    const user_id = req.user.id;
+  const query = `
+    INSERT INTO user_addresses (user_id, address_line1, address_line2, city, postal_code, country, phone)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING *
+  `;
 
-    const result = await pool.query(
-      `SELECT * FROM user_addresses
-       WHERE user_id = $1
-       ORDER BY id DESC`,
-      [user_id]
-    );
+  const values = [req.user.id, address_line1, address_line2, city, postal_code, country, phone];
+  const result = await pool.query(query, values);
 
-    res.json({
-      success: true,
-      addresses: result.rows
-    });
-  } catch (error) {
-    console.error('Get addresses error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  res.status(201).json({
+    success: true,
+    data: result.rows[0],
+  });
+});
+
+// @desc    Update address
+// @route   PUT /api/addresses/:id
+// @access  Private
+exports.updateAddress = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { address_line1, address_line2, city, postal_code, country, phone } = req.body;
+
+  // 1. التحقق من أن العنوان موجود ويخص المستخدم الحالي
+  const check = await pool.query('SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+
+  if (check.rows.length === 0) {
+    return next(new ErrorResponse('Address not found or unauthorized', 404));
   }
-};
 
-// تحديث العنوان
-const updateAddress = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user_id = req.user.id;
-    const { title, address, city, phone } = req.body;
+  // 2. التحديث
+  const query = `
+    UPDATE user_addresses
+    SET address_line1 = COALESCE($1, address_line1),
+        address_line2 = COALESCE($2, address_line2),
+        city = COALESCE($3, city),
+        postal_code = COALESCE($4, postal_code),
+        country = COALESCE($5, country),
+        phone = COALESCE($6, phone)
+    WHERE id = $7
+    RETURNING *
+  `;
 
-    const result = await pool.query(
-      `UPDATE user_addresses
-       SET title = $1, address = $2, city = $3, phone = $4
-       WHERE id = $5 AND user_id = $6
-       RETURNING *`,
-      [title, address, city, phone, id, user_id]
-    );
+  const values = [address_line1, address_line2, city, postal_code, country, phone, id];
+  const result = await pool.query(query, values);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Address not found'
-      });
-    }
+  res.status(200).json({
+    success: true,
+    data: result.rows[0]
+  });
+});
 
-    res.json({
-      success: true,
-      message: 'Address updated successfully',
-      address: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Update address error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+// @desc    Delete address
+// @route   DELETE /api/addresses/:id
+// @access  Private
+exports.deleteAddress = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  // التحقق من الملكية قبل الحذف
+  const check = await pool.query('SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+
+  if (check.rows.length === 0) {
+    return next(new ErrorResponse('Address not found or unauthorized', 404));
   }
-};
 
-// حذف العنوان
-const deleteAddress = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user_id = req.user.id;
+  await pool.query('DELETE FROM user_addresses WHERE id = $1', [id]);
 
-    const result = await pool.query(
-      `DELETE FROM user_addresses
-       WHERE id = $1 AND user_id = $2
-       RETURNING *`,
-      [id, user_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Address not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Address deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete address error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  }
-};
-
-module.exports = {
-  addAddress,
-  getUserAddresses,
-  updateAddress,
-  deleteAddress
-};
+  res.status(200).json({
+    success: true,
+    data: {},
+    message: 'Address removed'
+  });
+});

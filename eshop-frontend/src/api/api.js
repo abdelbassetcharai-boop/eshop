@@ -1,44 +1,42 @@
 import axios from 'axios';
 
-// يجب استخدام عنوان URL الخاص بالـ Backend
-const API_BASE_URL = 'http://localhost:5000/api';
-
+// إنشاء نسخة مخصصة من Axios
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // للسماح بإرسال واستقبال الكوكيز
 });
 
-// Interceptor لمعالجة الأخطاء الشائعة (مثل انتهاء صلاحية التوكن)
-api.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const status = error.response ? error.response.status : null;
-
-    if (status === 401) {
-      // إذا انتهت صلاحية التوكن، قم بتسجيل الخروج تلقائياً
-      console.error('Unauthorized access. Token expired or invalid.');
-      // ملاحظة: يجب استخدام دالة logout من AuthContext هنا،
-      // ولكن للتبسيط المبدئي نكتفي بتسجيل الخطأ.
+// 1. معترض الطلبات (Request Interceptor)
+// يضيف التوكن إلى ترويسة كل طلب صادر
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // إرجاع خطأ مبسط للتحكم في واجهة المستخدم
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || 'An unexpected error occurred.';
-    return Promise.reject({
-        message: errorMessage,
-        details: error.response?.data?.details // لعرض أخطاء الـ Validation
-    });
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
-// دالة لتعيين التوكن في جميع الطلبات المستقبلية
-export const setAuthToken = (token) => {
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } else {
-    delete api.defaults.headers.common['Authorization'];
+// 2. معترض الاستجابات (Response Interceptor)
+// يعالج الأخطاء العالمية مثل انتهاء صلاحية التوكن
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // إذا كان الخطأ 401 (غير مصرح) ولم نكن في صفحة الدخول أصلاً
+    if (error.response && error.response.status === 401) {
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem('token');
+        // يمكن استخدام window.location للتوجيه الإجباري
+        // window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
   }
-};
+);
 
 export default api;

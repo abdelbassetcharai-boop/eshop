@@ -5,7 +5,12 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: '#4F46E5', // لون إنديجو مخصص للموقع
+        secondary: '#10B981',
+      }
+    },
   },
   plugins: [],
 }

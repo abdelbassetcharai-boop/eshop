@@ -1,21 +1,28 @@
 const express = require('express');
-const router = express.Router();
 const {
   createOrder,
-  getUserOrders,
+  getMyOrders,
   getOrderById,
-  cancelOrder
+  getAllOrders,
+  updateOrderStatus
 } = require('../controllers/orderController');
-const auth = require  ('../middleware/auth');
-const validate = require('../middleware/validationMiddleware'); // استيراد التحقق
-const { orderSchemas } = require('../validation/schemas');       // استيراد المخططات
 
-// كل routes الطلبات تحتاج مصادقة
-router.use(auth);
+const { protect, authorize } = require('../middleware/auth');
 
-router.post('/', validate(orderSchemas.createOrder), createOrder);
-router.get('/', getUserOrders);
-router.get('/:id', getOrderById);
-router.put('/:id/cancel', cancelOrder);
+const router = express.Router();
+
+// 1. تطبيق حماية تسجيل الدخول على جميع المسارات أدناه
+// لا يمكن لأي زائر غير مسجل الوصول لأي من هذه الروابط
+router.use(protect);
+
+// --- مسارات المستخدم العادي ---
+router.post('/', createOrder);       // إنشاء طلب جديد
+router.get('/myorders', getMyOrders); // عرض طلباتي
+router.get('/:id', getOrderById);    // عرض تفاصيل طلب معين
+
+// --- مسارات الأدمن ---
+// تتطلب صلاحية 'admin'
+router.get('/', authorize('admin'), getAllOrders); // عرض كل الطلبات في النظام
+router.put('/:id/status', authorize('admin'), updateOrderStatus); // تحديث حالة الطلب (شحن/توصيل)
 
 module.exports = router;

@@ -1,83 +1,56 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const ErrorResponse = require('../utils/errorResponse');
+const asyncHandler = require('../utils/asyncHandler');
 
-// إنشاء عملية دفع
-const createPaymentIntent = async (req, res) => {
-  try {
-    const { order_id, payment_method, amount } = req.body;
+// @desc    Process payment for order
+// @route   POST /api/payments
+// @access  Private
+exports.processPayment = asyncHandler(async (req, res, next) => {
+  const { orderId, paymentMethod, amount } = req.body;
 
-    // في بيئة الإنتاج، هنا تتصل ببوابة الدفع (مثل Stripe, PayPal)
-    const transaction_id = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // 1. التحقق من أن الطلب يخص المستخدم وحالته "قيد الانتظار"
+  const orderCheck = await pool.query(
+    'SELECT * FROM orders WHERE id = $1 AND user_id = $2 AND status = $3',
+    [orderId, req.user.id, 'pending']
+  );
 
-    // ملاحظة: تم تعديل اسم الجدول من payment_transactions إلى payments
-    const result = await pool.query(
-      `INSERT INTO payments -- الجدول الصحيح
-       (order_id, payment_method, transaction_id, amount, payment_status) -- تم تعديل status إلى payment_status
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [order_id, payment_method, transaction_id, amount, 'pending']
-    );
-
-    res.json({
-      success: true,
-      payment_intent: {
-        id: result.rows[0].id,
-        transaction_id: result.rows[0].transaction_id,
-        client_secret: `pi_${transaction_id}_secret` // في الواقع سترجع من بوابة الدفع
-      }
-    });
-  } catch (error) {
-    console.error('Create payment intent error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Payment processing error'
-    });
+  if (orderCheck.rows.length === 0) {
+    return next(new ErrorResponse('Order not found or already paid', 404));
   }
-};
 
-// تأكيد الدفع
-const confirmPayment = async (req, res) => {
+  // 2. محاكاة عملية الدفع (هنا يتم استدعاء Stripe/PayPal API في التطبيق الحقيقي)
+  // نفترض نجاح العملية حالياً للتجربة
+  const paymentStatus = 'completed';
+  const transactionId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+  // --- بدء المعاملة (Transaction) لضمان تكامل البيانات ---
+  const client = await pool.connect();
   try {
-    const { payment_intent_id } = req.body; // هو في الواقع transaction_id هنا
+    await client.query('BEGIN');
 
-    // ملاحظة: تم تعديل اسم الجدول من payment_transactions إلى payments
-    const result = await pool.query(
-      `UPDATE payments -- الجدول الصحيح
-       SET payment_status = 'completed'
-       WHERE transaction_id = $1
-       RETURNING *`,
-      [payment_intent_id]
-    );
+    // أ. تسجيل عملية الدفع في جدول المدفوعات
+    const paymentQuery = `
+      INSERT INTO payments (order_id, amount, provider, status, transaction_id)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+    const paymentResult = await client.query(paymentQuery, [orderId, amount, paymentMethod, paymentStatus, transactionId]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Payment not found'
-      });
-    }
+    // ب. تحديث حالة الطلب إلى "مدفوع"
+    await client.query('UPDATE orders SET status = $1 WHERE id = $2', ['paid', orderId]);
 
-    // تحديث حالة الطلب
-    // يجب أن يكون تحديث حالة الطلب من 'pending' إلى 'processing' بعد تأكيد الدفع
-    await pool.query(
-      `UPDATE orders SET status = 'processing'
-       WHERE id = $1`,
-      [result.rows[0].order_id]
-    );
+    await client.query('COMMIT'); // اعتماد التغييرات
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: 'Payment confirmed successfully',
-      order_id: result.rows[0].order_id // إضافة ID الطلب في الرد
+      data: paymentResult.rows[0]
     });
-  } catch (error) {
-    console.error('Confirm payment error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Payment confirmation error'
-    });
-  }
-};
 
-module.exports = {
-  createPaymentIntent,
-  confirmPayment
-};
+  } catch (err) {
+    await client.query('ROLLBACK'); // التراجع في حال حدوث خطأ
+    console.error('Payment Error:', err);
+    next(new ErrorResponse('Payment processing failed', 500));
+  } finally {
+    client.release();
+  }
+});

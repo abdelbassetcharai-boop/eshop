@@ -1,25 +1,37 @@
 const { Pool } = require('pg');
 
-// ********** هام: يجب تغيير كلمة المرور Host والحقول الأخرى لتناسب إعداداتك **********
-// (تم استخدام قيم ثابتة هنا لتجنب الاعتماد على ملف .env الذي قد يكون غير محمل)
+// التأكد من تحميل متغيرات البيئة في حال تم استدعاء هذا الملف بشكل منفصل
+if (!process.env.DB_HOST) {
+  require('dotenv').config();
+}
 
+// إعداد مجمع الاتصالات (Connection Pool)
 const pool = new Pool({
-  // يمكنك استبدال هذه القيم مباشرة بالقيم التي تعمل لديك في PostgreSQL
-  user: 'postgres',
-  host: 'localhost', // إذا فشل الاتصال، جرب '127.0.0.1'
-  database: 'eshop',
-  password: 'MyNewPassword123', // <--- تأكد من تغيير هذا إلى كلمة المرور الحقيقية
-  port: 5432,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  // تحسينات الأداء (Performance Tuning)
+  max: 20, // أقصى عدد للاتصالات المتزامنة
+  idleTimeoutMillis: 30000, // إغلاق الاتصال الخامل بعد 30 ثانية
+  connectionTimeoutMillis: 2000, // مهلة محاولة الاتصال
 });
 
-// اختبار الاتصال (هذا السطر يوضح ما إذا كانت قاعدة البيانات تعمل أم لا)
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Database connection error: PLEASE CHECK DB_PASSWORD AND PORT', err.stack);
-  } else {
-    console.log('✅ Database connected successfully');
-    release();
-  }
+// مراقبة أحداث الاتصال (لأغراض التصحيح - Debugging)
+pool.on('connect', () => {
+  // يتم تفعيل هذا الحدث في كل مرة يتم فيها إنشاء "عميل" جديد في المجمع
+  // console.log('📦 New client connected to database');
 });
 
-module.exports = pool;
+pool.on('error', (err, client) => {
+  console.error('❌ Unexpected error on idle client', err);
+  process.exit(-1); // إيقاف التطبيق في حال حدوث خطأ جسيم في الاتصال
+});
+
+// دالة مساعدة لتنفيذ الاستعلامات
+// هذا النمط يسمح لنا بإضافة Logging أو منطق إضافي مستقبلاً لكل استعلام
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  pool, // تصدير الـ pool نفسه لاستخدامه في المعاملات (Transactions)
+};

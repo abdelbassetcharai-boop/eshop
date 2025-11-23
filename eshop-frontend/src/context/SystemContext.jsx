@@ -1,76 +1,48 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getBootstrapApi } from '../api/authApi'; // جلب خدمة الـ Bootstrap
+import { createContext, useState, useEffect, useContext } from 'react';
+import api from '../api/api'; // استخدام العميل المباشر لأن هذه المسارات عامة
 
 const SystemContext = createContext();
 
-/**
- * يوفر الوصول إلى الإعدادات الديناميكية للمتجر (Theme, Translations, Layout)
- * ويطبق متغيرات CSS عالمياً.
- */
-const SystemProvider = ({ children }) => {
-  const [systemData, setSystemData] = useState({
-    config: {},         // إعدادات عامة (site_name, default_currency)
-    theme: {},          // إعدادات الثيم (colors, fonts)
-    translations: {},   // نصوص الواجهة (i18n)
-    isLoaded: false,    // حالة التحميل الأولي
-    layout: [],         // تخطيط الصفحة الرئيسية (JSONB)
-    shippingZones: [],  // مناطق الشحن
-    banners: [],        // البنرات الإعلانية
-  });
+export const useSystem = () => useContext(SystemContext);
+
+export const SystemProvider = ({ children }) => {
+  const [config, setConfig] = useState(null);
+  const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadSystemConfig = async () => {
+    const fetchSystemData = async () => {
       try {
-        // جلب جميع الإعدادات العامة من الـ Backend في طلب واحد
-        // *** response الآن تحتوي على الكائن الكامل: { success: true, data: {...} } ***
-        const response = await getBootstrapApi('ar');
+        // جلب الإعدادات والبنرات بشكل متوازي
+        const [configRes, bannersRes] = await Promise.all([
+          api.get('/public/bootstrap'),
+          api.get('/public/banners')
+        ]);
 
-        const data = response?.data; // نُزيل مستوى واحد من data
-
-        if (!data || !response.success) {
-             console.warn("Bootstrap API returned success but no data payload.");
-             setSystemData(prev => ({ ...prev, isLoaded: true }));
-             return;
-        }
-
-        setSystemData({
-          config: data.config,
-          theme: data.theme,
-          translations: data.translations,
-          isLoaded: true,
-          layout: data.layout,
-          shippingZones: data.shipping_zones,
-          banners: data.banners,
-        });
-
-        // ==========================================================
-        // التطبيق الديناميكي للثيم كمتغيرات CSS (CSS Variables)
-        // ==========================================================
-        const root = document.documentElement.style;
-        root.setProperty('--primary-color', data.theme['--primary-color'] || '#059669');
-        root.setProperty('--secondary-color', data.theme['--secondary-color'] || '#3B82F6');
-        root.setProperty('--font-family', data.theme['--font-family'] || 'Cairo, sans-serif');
-        root.setProperty('--border-radius', data.theme['--border-radius'] || '0.75rem');
+        if (configRes.data.success) setConfig(configRes.data.data);
+        if (bannersRes.data.success) setBanners(bannersRes.data.data);
 
       } catch (error) {
-        // يتم طباعة الخطأ هنا: فشل في الاتصال أو فشل في الخادم (500)
-        console.error('❌ فشل تحميل إعدادات النظام (Bootstrap Error):', error);
-        setSystemData(prev => ({ ...prev, isLoaded: true }));
+        console.error('Failed to load system data', error);
+      } finally {
+        setLoading(false);
       }
     };
-    loadSystemConfig();
+
+    fetchSystemData();
   }, []);
 
+  const value = {
+    config,
+    banners,
+    loading
+  };
+
   return (
-    <SystemContext.Provider value={systemData}>
+    <SystemContext.Provider value={value}>
       {children}
     </SystemContext.Provider>
   );
 };
 
-/**
- * Hook مخصص للوصول السهل إلى سياق النظام.
- */
-const useSystem = () => useContext(SystemContext);
-
-export { SystemProvider, useSystem };
+export default SystemContext;

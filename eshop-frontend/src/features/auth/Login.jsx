@@ -1,113 +1,120 @@
 import React, { useState } from 'react';
-import { NavLink, Navigate } from 'react-router-dom';
-// تم تعديل المسارات لضمان التوافق المطلق
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { LogIn } from 'lucide-react';
 
-/**
- * مكون تسجيل الدخول (Login Page)
- * يعرض نموذج إدخال البريد وكلمة المرور ويتعامل مع منطق المصادقة والتحقق من الأخطاء.
- */
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [generalError, setGeneralError] = useState(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // إذا كان المستخدم مصادقاً بالفعل، أعد التوجيه إلى الصفحة الرئيسية
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
+  // معرفة الصفحة التي جاء منها المستخدم (لإعادته إليها بعد الدخول)
+  const from = location.state?.from?.pathname || '/';
 
-  // معالجة أخطاء التحقق من الـ Backend
-  const handleErrors = (err) => {
-    setGeneralError(err.message);
-    const newErrors = {};
-    if (err.details) {
-        // إذا كانت هناك أخطاء Validation مفصلة (قادمة من Joi)
-        err.details.forEach(detail => {
-            // تحويل "email" إلى "email" للعرض تحت الحقل المقابل
-            newErrors[detail.field] = detail.message;
-        });
-    }
-    setErrors(newErrors);
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErrors({});
-    setGeneralError(null);
+    setIsSubmitting(true);
 
-    try {
-      await login(email, password);
-      // التوجيه يتم تلقائياً عن طريق Navigate في الأعلى
-    } catch (err) {
-      console.error('Login Error:', err);
-      handleErrors(err);
-    } finally {
-      setLoading(false);
+    const success = await login(formData);
+
+    setIsSubmitting(false);
+    if (success) {
+      navigate(from, { replace: true });
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 lg:mt-20">
-      <div
-        className="p-8 lg:p-10 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border-t-4 transition duration-300"
-        style={{ borderColor: 'var(--primary-color)' }}
-      >
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800 dark:text-gray-100" style={{ fontFamily: 'var(--font-family)' }}>
-          تسجيل الدخول
-        </h2>
-
-        {/* عرض رسالة خطأ عامة */}
-        {generalError && (
-          <div className="text-red-500 text-sm mb-6 bg-red-100 dark:bg-red-900 p-4 rounded-xl border border-red-300 dark:border-red-700 font-medium">
-            {generalError}
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
+            <LogIn className="h-6 w-6 text-indigo-600" />
           </div>
-        )}
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            تسجيل الدخول
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            أهلاً بك مجدداً في متجر EShop
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ direction: 'rtl' }}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <Input
+              label="البريد الإلكتروني"
+              id="email-address"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="name@example.com"
+              value={formData.email}
+              onChange={handleChange}
+            />
 
-          <Input
-            label="البريد الإلكتروني"
-            type="email"
-            placeholder="ادخل بريدك الإلكتروني"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={errors.email}
-            required
-          />
-
-          <Input
-            label="كلمة المرور"
-            type="password"
-            placeholder="ادخل كلمة المرور"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={errors.password}
-            required
-          />
-
-          <div className="flex flex-col space-y-4 mt-6">
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={loading}
-              disabled={loading}
-            >
-              تسجيل الدخول
-            </Button>
-
-            <NavLink to="/register" className="inline-block align-baseline font-semibold text-sm text-center text-gray-600 dark:text-gray-400 hover:text-[var(--primary-color)] transition duration-150">
-              ليس لديك حساب؟ إنشاء حساب جديد
-            </NavLink>
+            <Input
+              label="كلمة المرور"
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder="••••••••"
+              value={formData.password}
+              onChange={handleChange}
+            />
           </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                تذكرني
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                نسيت كلمة المرور؟
+              </a>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            isLoading={isSubmitting}
+          >
+            دخول
+          </Button>
         </form>
+
+        <div className="text-center mt-4">
+           <p className="text-sm text-gray-600">
+             ليس لديك حساب؟{' '}
+             <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
+               أنشئ حساباً جديداً
+             </Link>
+           </p>
+        </div>
       </div>
     </div>
   );

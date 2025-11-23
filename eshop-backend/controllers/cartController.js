@@ -1,213 +1,111 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const ErrorResponse = require('../utils/errorResponse');
+const asyncHandler = require('../utils/asyncHandler');
 
-// إضافة منتج للعربة
-const addToCart = async (req, res) => {
-  try {
-    const { product_id, quantity } = req.body;
-    const user_id = req.user.id;
+// @desc    Get user cart
+// @route   GET /api/cart
+// @access  Private
+exports.getCart = asyncHandler(async (req, res, next) => {
+  // جلب عناصر السلة مع تفاصيل المنتج (الاسم، السعر، الصورة) باستخدام JOIN
+  const query = `
+    SELECT ci.id, ci.product_id, ci.quantity, p.name, p.price, p.image_url, p.stock
+    FROM cart_items ci
+    JOIN products p ON ci.product_id = p.id
+    WHERE ci.user_id = $1
+    ORDER BY ci.created_at DESC
+  `;
 
-    if (!product_id || !quantity) {
-      return res.status(400).json({
-        success: false,
-        error: 'Product ID and quantity are required'
-      });
-    }
+  const result = await pool.query(query, [req.user.id]);
 
-    // التحقق من وجود المنتج
-    const productResult = await pool.query(
-      'SELECT * FROM products WHERE id = $1',
-      [product_id]
-    );
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    data: result.rows,
+  });
+});
 
-    if (productResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
+// @desc    Add item to cart
+// @route   POST /api/cart
+// @access  Private
+exports.addToCart = asyncHandler(async (req, res, next) => {
+  const { productId, quantity } = req.body;
+  const qty = parseInt(quantity) || 1;
 
-    // التحقق من الكمية المتاحة
-    const product = productResult.rows[0];
-    if (product.stock < quantity) {
-      return res.status(400).json({
-        success: false,
-        error: 'Not enough stock available'
-      });
-    }
+  // 1. التحقق من توفر المنتج في المخزون
+  const productCheck = await pool.query('SELECT stock FROM products WHERE id = $1', [productId]);
 
-    // التحقق إذا المنتج موجود مسبقاً في العربة
-    const existingCartItem = await pool.query(
-      'SELECT * FROM cart WHERE user_id = $1 AND product_id = $2',
-      [user_id, product_id]
-    );
-
-    let result;
-    if (existingCartItem.rows.length > 0) {
-      // تحديث الكمية إذا المنتج موجود
-      result = await pool.query(
-        'UPDATE cart SET quantity = quantity + $1 WHERE user_id = $2 AND product_id = $3 RETURNING *',
-        [quantity, user_id, product_id]
-      );
-    } else {
-      // إضافة جديدة إذا المنتج غير موجود
-      result = await pool.query(
-        'INSERT INTO cart (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *',
-        [user_id, product_id, quantity]
-      );
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Product added to cart',
-      cartItem: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Add to cart error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  if (productCheck.rows.length === 0) {
+    return next(new ErrorResponse('Product not found', 404));
   }
-};
 
-// عرض عربة المستخدم
-const getCart = async (req, res) => {
-  try {
-    const user_id = req.user.id;
+  // (اختياري: التحقق من الكمية المتوفرة)
+  // if (productCheck.rows[0].stock < qty) {
+  //   return next(new ErrorResponse('Not enough stock available', 400));
+  // }
 
-    const result = await pool.query(`
-      SELECT
-        c.id as cart_id,
-        c.quantity,
-        p.id as product_id,
-        p.name,
-        p.description,
-        p.price,
-        p.image_url,
-        p.stock,
-        (p.price * c.quantity) as total_price
-      FROM cart c
-      JOIN products p ON c.product_id = p.id
-      WHERE c.user_id = $1
-      ORDER BY c.created_at DESC
-    `, [user_id]);
+  // 2. التحقق مما إذا كان المنتج موجوداً بالفعل في سلة المستخدم
+  const checkQuery = 'SELECT * FROM cart_items WHERE user_id = $1 AND product_id = $2';
+  const checkResult = await pool.query(checkQuery, [req.user.id, productId]);
 
-    // حساب الإجمالي
-    const total = result.rows.reduce((sum, item) => sum + parseFloat(item.total_price), 0);
+  let result;
 
-    res.json({
-      success: true,
-      cart: result.rows,
-      total: total.toFixed(2),
-      itemCount: result.rows.length
-    });
-  } catch (error) {
-    console.error('Get cart error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  if (checkResult.rows.length > 0) {
+    // إذا كان موجوداً، نقوم بتحديث الكمية فقط
+    const updateQuery = `
+      UPDATE cart_items
+      SET quantity = quantity + $1
+      WHERE user_id = $2 AND product_id = $3
+      RETURNING *
+    `;
+    result = await pool.query(updateQuery, [qty, req.user.id, productId]);
+  } else {
+    // إذا لم يكن موجوداً، نقوم بإضافته كعنصر جديد
+    const insertQuery = `
+      INSERT INTO cart_items (user_id, product_id, quantity)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `;
+    result = await pool.query(insertQuery, [req.user.id, productId, qty]);
   }
-};
 
-// تحديث كمية المنتج في العربة
-const updateCartItem = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { quantity } = req.body;
-    const user_id = req.user.id;
+  res.status(200).json({
+    success: true,
+    message: 'Item added to cart',
+    data: result.rows[0],
+  });
+});
 
-    if (!quantity || quantity < 1) {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid quantity is required'
-      });
-    }
+// @desc    Remove item from cart
+// @route   DELETE /api/cart/:id
+// @access  Private
+exports.removeFromCart = asyncHandler(async (req, res, next) => {
+  const { id } = req.params; // هذا هو id الخاص بسجل cart_items وليس product_id
 
-    const result = await pool.query(
-      'UPDATE cart SET quantity = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [quantity, id, user_id]
-    );
+  const result = await pool.query(
+    'DELETE FROM cart_items WHERE id = $1 AND user_id = $2 RETURNING *',
+    [id, req.user.id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Cart item not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Cart updated successfully',
-      cartItem: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Update cart error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  if (result.rows.length === 0) {
+    return next(new ErrorResponse('Item not found in cart', 404));
   }
-};
 
-// حذف منتج من العربة
-const removeFromCart = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user_id = req.user.id;
+  res.status(200).json({
+    success: true,
+    data: {},
+    message: 'Item removed from cart'
+  });
+});
 
-    const result = await pool.query(
-      'DELETE FROM cart WHERE id = $1 AND user_id = $2 RETURNING *',
-      [id, user_id]
-    );
+// @desc    Clear entire cart
+// @route   DELETE /api/cart
+// @access  Private
+exports.clearCart = asyncHandler(async (req, res, next) => {
+  await pool.query('DELETE FROM cart_items WHERE user_id = $1', [req.user.id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Cart item not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Item removed from cart'
-    });
-  } catch (error) {
-    console.error('Remove from cart error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  }
-};
-
-// تفريغ العربة
-const clearCart = async (req, res) => {
-  try {
-    const user_id = req.user.id;
-
-    await pool.query(
-      'DELETE FROM cart WHERE user_id = $1',
-      [user_id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Cart cleared successfully'
-    });
-  } catch (error) {
-    console.error('Clear cart error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  }
-};
-
-module.exports = {
-  addToCart,
-  getCart,
-  updateCartItem,
-  removeFromCart,
-  clearCart
-};
+  res.status(200).json({
+    success: true,
+    data: {},
+    message: 'Cart cleared successfully'
+  });
+});

@@ -1,238 +1,164 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const ErrorResponse = require('../utils/errorResponse');
+const asyncHandler = require('../utils/asyncHandler');
 
-// جلب جميع المنتجات
-const getAllProducts = async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        p.*,
-        c.name as category_name,
-        COALESCE(AVG(r.rating), 0) as average_rating,
-        COALESCE(COUNT(r.id), 0) as review_count
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN reviews r ON p.id = r.product_id
-      WHERE p.is_active = TRUE -- عرض المنتجات النشطة فقط
-      GROUP BY p.id, c.name
-      ORDER BY p.created_at DESC
-    `);
+// @desc    Get all products with pagination & filtering
+// @route   GET /api/products
+// @access  Public
+exports.getProducts = asyncHandler(async (req, res, next) => {
+  // 1. إعداد الترقيم (Pagination)
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
-    res.json({
-      success: true,
-      count: result.rows.length,
-      products: result.rows
-    });
-  } catch (error) {
-    console.error('Get products error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  // 2. إعداد الفلترة (Filtering)
+  let queryText = 'SELECT * FROM products';
+  const queryParams = [];
+  let whereClauses = [];
+
+  // فلترة حسب التصنيف
+  if (req.query.category) {
+    queryParams.push(req.query.category);
+    whereClauses.push(`category_id = $${queryParams.length}`);
   }
-};
 
-// جلب منتج بواسطة ID
-const getProductById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const productResult = await pool.query(`
-      SELECT
-        p.*,
-        c.name as category_name,
-        COALESCE(AVG(r.rating), 0) as average_rating,
-        COALESCE(COUNT(r.id), 0) as review_count
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN reviews r ON p.id = r.product_id
-      WHERE p.id = $1
-      GROUP BY p.id, c.name
-    `, [id]);
-
-    if (productResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    // جلب التقييمات الخاصة بالمنتج
-    const reviewsResult = await pool.query(`
-      SELECT r.*, u.name as user_name
-      FROM reviews r
-      LEFT JOIN users u ON r.user_id = u.id
-      WHERE r.product_id = $1
-      ORDER BY r.created_at DESC
-    `, [id]);
-
-    res.json({
-      success: true,
-      product: {
-        ...productResult.rows[0],
-        reviews: reviewsResult.rows
-      }
-    });
-  } catch (error) {
-    console.error('Get product error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  // فلترة حسب البحث بالاسم (Search)
+  if (req.query.keyword) {
+    queryParams.push(`%${req.query.keyword}%`);
+    whereClauses.push(`name ILIKE $${queryParams.length}`);
   }
-};
 
-// إضافة منتج جديد
-const createProduct = async (req, res) => {
-  try {
-    // يجب أن يكون المستخدم موثوق كـ Vendor/Admin (تم التحقق منه في المسار)
-    const vendor_id = req.user.id;
-    const { name, description, price, category_id, stock, image_url } = req.body;
-
-    // التحقق من البيانات المطلوبة (يجب إضافة التحقق الشامل هنا لاحقاً)
-    if (!name || !price || !category_id || !vendor_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Name, price, category, and vendor ID are required'
-      });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO products
-       (name, description, price, category_id, stock, image_url, vendor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [name, description, price, category_id, stock || 0, image_url, vendor_id]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      product: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Create product error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  // تجميع شروط WHERE
+  if (whereClauses.length > 0) {
+    queryText += ' WHERE ' + whereClauses.join(' AND ');
   }
-};
 
-// تحديث منتج
-const updateProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, price, category_id, stock, image_url, is_active } = req.body;
-    const user_id = req.user.id; // البائع أو المشرف الذي يقوم بالتحديث
-
-    // يجب إضافة التحقق من المدخلات هنا
-    if (!id) {
-       return res.status(400).json({ success: false, error: 'Product ID required' });
-    }
-
-    // شرط التحديث: يجب أن يكون المنتج مملوكاً للبائع (أو أن يكون المستخدم مشرفاً، وهو ما يجب إضافته لاحقاً في منطق التحكم)
-    // حالياً، المسار محمي بـ vendorAuth، لذا يجب أن يكون البائع هو المالك أو مشرف.
-    const updateClauses = [];
-    const params = [];
-    let paramCount = 1;
-
-    // بناء ديناميكي للـ UPDATE
-    if (name) { updateClauses.push(`name = $${paramCount++}`); params.push(name); }
-    if (description) { updateClauses.push(`description = $${paramCount++}`); params.push(description); }
-    if (price) { updateClauses.push(`price = $${paramCount++}`); params.push(price); }
-    if (category_id) { updateClauses.push(`category_id = $${paramCount++}`); params.push(category_id); }
-    if (stock) { updateClauses.push(`stock = $${paramCount++}`); params.push(stock); }
-    if (image_url) { updateClauses.push(`image_url = $${paramCount++}`); params.push(image_url); }
-    if (typeof is_active !== 'undefined') { updateClauses.push(`is_active = $${paramCount++}`); params.push(is_active); }
-
-
-    if (updateClauses.length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
-    }
-
-    // إضافة شروط الـ WHERE
-    params.push(id);
-    const productIdIndex = paramCount++;
-
-    // لضمان أن البائع لا يحدث إلا منتجاته، أو أن يكون مشرفاً
-    let whereClause = `WHERE id = $${productIdIndex}`;
-
-    if (req.user.role === 'vendor') {
-      params.push(user_id);
-      whereClause += ` AND vendor_id = $${paramCount}`;
-    }
-    // المشرف يمكنه التحديث بدون شرط vendor_id
-
-    const result = await pool.query(
-      `UPDATE products SET ${updateClauses.join(', ')} ${whereClause} RETURNING *`,
-      params
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found or access denied'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      product: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Update product error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  // 3. حساب العدد الكلي للنتائج (لأغراض الترقيم في الواجهة الأمامية)
+  // نستخدم استعلام منفصل للعد بنفس الشروط
+  let countQuery = 'SELECT COUNT(*) FROM products';
+  if (whereClauses.length > 0) {
+    countQuery += ' WHERE ' + whereClauses.join(' AND ');
   }
-};
+  const countResult = await pool.query(countQuery, queryParams); // نستخدم نفس المعاملات للعد
+  const total = parseInt(countResult.rows[0].count);
 
-// حذف منتج
-const deleteProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user_id = req.user.id;
+  // 4. إضافة الترتيب والحدود (Sorting & Pagination)
+  // الترتيب الافتراضي: الأحدث أولاً
+  queryText += ` ORDER BY created_at DESC`;
 
-    // لضمان أن البائع لا يحذف إلا منتجاته، أو أن يكون مشرفاً
-    let query = 'DELETE FROM products WHERE id = $1';
-    const params = [id];
+  // إضافة LIMIT و OFFSET
+  // ملاحظة: نحتاج لإضافة قيم limit و offset إلى مصفوفة المعاملات
+  queryParams.push(limit);
+  queryText += ` LIMIT $${queryParams.length}`;
 
-    if (req.user.role === 'vendor') {
-      query += ' AND vendor_id = $2';
-      params.push(user_id);
-    }
-    // المشرف يمكنه الحذف بدون شرط vendor_id
+  queryParams.push(offset);
+  queryText += ` OFFSET $${queryParams.length}`;
 
-    query += ' RETURNING *';
+  // 5. تنفيذ الاستعلام النهائي
+  const result = await pool.query(queryText, queryParams);
 
-    const result = await pool.query(query, params);
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit)
+    },
+    data: result.rows,
+  });
+});
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found or access denied'
-      });
-    }
+// @desc    Get single product
+// @route   GET /api/products/:id
+// @access  Public
+exports.getProduct = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
 
-    res.json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete product error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
+  if (result.rows.length === 0) {
+    return next(new ErrorResponse(`Product not found with id of ${id}`, 404));
   }
-};
 
-module.exports = {
-  getAllProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  deleteProduct
-};
+  res.status(200).json({
+    success: true,
+    data: result.rows[0],
+  });
+});
+
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private (Admin)
+exports.createProduct = asyncHandler(async (req, res, next) => {
+  // نفترض أن vendor_id هو المستخدم الحالي (الأدمن)
+  const { name, description, price, stock, category_id, image_url } = req.body;
+
+  const query = `
+    INSERT INTO products (name, description, price, stock, category_id, image_url, vendor_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING *
+  `;
+
+  const values = [name, description, price, stock, category_id, image_url, req.user.id];
+  const result = await pool.query(query, values);
+
+  res.status(201).json({
+    success: true,
+    data: result.rows[0],
+  });
+});
+
+// @desc    Update product
+// @route   PUT /api/products/:id
+// @access  Private (Admin)
+exports.updateProduct = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { name, description, price, stock, category_id, image_url } = req.body;
+
+  // التحقق من وجود المنتج أولاً
+  const check = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+  if (check.rows.length === 0) {
+    return next(new ErrorResponse(`Product not found`, 404));
+  }
+
+  // تحديث الحقول ديناميكياً (COALESCE يحافظ على القيمة القديمة إذا كانت الجديدة null)
+  const query = `
+    UPDATE products
+    SET name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        price = COALESCE($3, price),
+        stock = COALESCE($4, stock),
+        category_id = COALESCE($5, category_id),
+        image_url = COALESCE($6, image_url)
+    WHERE id = $7
+    RETURNING *
+  `;
+
+  const values = [name, description, price, stock, category_id, image_url, id];
+  const result = await pool.query(query, values);
+
+  res.status(200).json({
+    success: true,
+    data: result.rows[0],
+  });
+});
+
+// @desc    Delete product
+// @route   DELETE /api/products/:id
+// @access  Private (Admin)
+exports.deleteProduct = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  // الحذف وإرجاع المعرف للتأكيد
+  const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING id', [id]);
+
+  if (result.rows.length === 0) {
+    return next(new ErrorResponse(`Product not found`, 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {},
+    message: 'Product deleted successfully'
+  });
+});

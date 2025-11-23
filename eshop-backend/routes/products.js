@@ -1,26 +1,56 @@
 const express = require('express');
-const router = express.Router();
 const {
-  getAllProducts,
-  getProductById,
+  getProducts,
+  getProduct,
   createProduct,
   updateProduct,
   deleteProduct
 } = require('../controllers/productController');
-const auth = require('../middleware/auth');
-const { vendorAuth } = require('../middleware/adminAuth');
-const validate = require('../middleware/validationMiddleware'); // استيراد التحقق
-const { productSchemas } = require('../validation/schemas');       // استيراد المخططات
 
-// routes عامة (لا تحتاج مصادقة)
-router.get('/', getAllProducts);
-router.get('/:id', getProductById);
+// استيراد دوال التقييمات لربطها كمسار فرعي
+const { getReviews, createReview } = require('../controllers/reviewController');
 
-// routes محمية (للبائعين والمشرفين فقط)
-// تطبيق التحقق على الإنشاء
-router.post('/', auth, vendorAuth, validate(productSchemas.product), createProduct);
-// تطبيق التحقق على التحديث (باستخدام نفس المخطط، لكن Joi يسمح بالحد الأدنى من الحقول)
-router.put('/:id', auth, vendorAuth, validate(productSchemas.product), updateProduct);
-router.delete('/:id', auth, vendorAuth, deleteProduct);
+const { protect, authorize } = require('../middleware/auth');
+const validate = require('../middleware/validationMiddleware');
+const { productSchema } = require('../validation/schemas');
+
+const router = express.Router();
+
+// --- المسارات العامة (Public) ---
+// عرض جميع المنتجات أو منتج واحد
+router.get('/', getProducts);
+router.get('/:id', getProduct);
+
+// --- مسارات التقييمات (Reviews) ---
+// عرض تقييمات منتج معين
+router.get('/:productId/reviews', getReviews);
+// إضافة تقييم (يتطلب تسجيل دخول)
+router.post('/:productId/reviews', protect, createReview);
+
+// --- مسارات الأدمن (Admin) ---
+// تتطلب حماية وصلاحية 'admin' وتحقق من صحة البيانات
+
+router.post(
+  '/',
+  protect,
+  authorize('admin'),
+  validate(productSchema),
+  createProduct
+);
+
+router.put(
+  '/:id',
+  protect,
+  authorize('admin'),
+  validate(productSchema),
+  updateProduct
+);
+
+router.delete(
+  '/:id',
+  protect,
+  authorize('admin'),
+  deleteProduct
+);
 
 module.exports = router;

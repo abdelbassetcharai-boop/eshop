@@ -1,99 +1,87 @@
+const path = require('path');
 const express = require('express');
+const dotenv = require('dotenv');
 const cors = require('cors');
-require('dotenv').config();
+const morgan = require('morgan');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const hpp = require('hpp');
+const rateLimit = require('express-rate-limit');
+const errorHandler = require('./middleware/errorMiddleware');
 
+// 1. تحميل متغيرات البيئة
+dotenv.config();
+
+// 2. تهيئة التطبيق
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// 3. أدوات الحماية والـ Middleware الأساسية
+// معالجة JSON (مع تحديد الحجم للحماية من هجمات الإغراق)
+app.use(express.json({ limit: '10kb' }));
 
-// ============================================================
-// 1. المسارات العامة (Public Routes - Headless CMS)
-// هذه المسارات تسمح للواجهة بجلب الإعدادات دون تسجيل دخول
-// ============================================================
-app.use('/api/public', require('./routes/public'));
+// تسجيل الطلبات (Logging) في وضع التطوير
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
 
-// ============================================================
-// 2. مسارات المتجر الأساسية (Store Routes)
-// ============================================================
+// إعدادات الأمان (Security Headers)
+app.use(helmet());
+
+// الحماية من هجمات XSS
+app.use(xss());
+
+// الحماية من تلوث المعاملات (Parameter Pollution)
+app.use(hpp());
+
+// تحديد معدل الطلبات (Rate Limiting) - 100 طلب كل 10 دقائق
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP, please try again after 10 minutes'
+});
+app.use('/api', limiter);
+
+// إعدادات CORS (للربط مع الفرونت إند)
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
+// 4. جعل مجلد الصور عاماً (للوصول لصور المنتجات)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 5. تعريف المسارات (Routes)
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/products', require('./routes/products'));
-app.use('/api/cart', require('./routes/cart'));
+app.use('/api/categories', require('./routes/categories'));
 app.use('/api/orders', require('./routes/orders'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/shipping', require('./routes/shipping'));
+app.use('/api/cart', require('./routes/cart'));
 app.use('/api/addresses', require('./routes/addresses'));
-
-// ============================================================
-// 3. مسارات لوحة التحكم (Admin Routes)
-// تم تحديث هذا الملف ليشمل التحكم الكامل في النظام
-// ============================================================
+app.use('/api/shipping', require('./routes/shipping'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/public', require('./routes/public'));
 app.use('/api/admin', require('./routes/admin'));
 
-// ============================================================
-// 4. فحص حالة النظام (Health Check)
-// ============================================================
-app.get('/api/health', async (req, res) => {
-  try {
-    const db = require('./config/database');
-    await db.query('SELECT 1');
-    res.json({
-      status: '✅ System Operational',
-      mode: 'Dynamic / Global',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// نقطة النهاية الرئيسية
+// المسار الرئيسي للفحص
 app.get('/', (req, res) => {
-  res.json({
-    message: '🚀 Global Dynamic E-commerce API Running',
-    bootstrap_url: '/api/public/bootstrap'
-  });
+  res.send('🚀 E-Shop API is running...');
 });
 
+// 6. معالجة الأخطاء (يجب أن يكون في النهاية)
+app.use(errorHandler);
+
+// 7. تشغيل السيرفر
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🔌 Dynamic API: http://localhost:${PORT}/api/public/bootstrap`);
+
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
 
-// --- كود مؤقت لإنشاء أدمن ---
-// احذفه بعد أن يعمل الدخول
-const bcrypt = require('bcryptjs');
-const pool = require('./config/database');
-
-const createAdmin = async () => {
-  const email = 'admin@store.com';
-  const password = '123456';
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  try {
-    // محاولة تحديث المستخدم إذا كان موجوداً
-    const res = await pool.query(
-      "UPDATE users SET password = $1, role = 'admin' WHERE email = $2 RETURNING *",
-      [hashedPassword, email]
-    );
-
-    if (res.rows.length === 0) {
-      // إذا لم يكن موجوداً، ننشئه
-      await pool.query(
-        "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, 'admin')",
-        ['Admin User', email, hashedPassword]
-      );
-      console.log('✅ Admin created: admin@store.com / 123456');
-    } else {
-      console.log('✅ Admin updated: admin@store.com / 123456');
-    }
-  } catch (err) {
-    console.error('Error creating admin:', err);
-  }
-};
-
-// شغل الدالة مرة واحدة عند بدء السيرفر
-createAdmin();
-// ---------------------------
+// التعامل مع الأخطاء غير المتوقعة (Unhandled Rejections)
+process.on('unhandledRejection', (err, promise) => {
+  console.log(`Error: ${err.message}`);
+  // إغلاق السيرفر بأمان
+  server.close(() => process.exit(1));
+});

@@ -1,36 +1,35 @@
 const express = require('express');
-const router = express.Router();
 const {
   register,
   login,
-  getProfile,
-  updateProfile
+  getMe,
+  logout,
+  updateDetails,
 } = require('../controllers/authController');
-const auth = require('../middleware/auth');
-const validate = require('../middleware/validationMiddleware'); // استيراد التحقق
-const { authSchemas } = require('../validation/schemas');       // استيراد المخططات
-const { strictAuthLimiter } = require('../middleware/rateLimiter'); // استيراد محدد المعدل
 
-// routes عامة (لا تحتاج مصادقة)
-// تطبيق محدد المعدل والتحقق من المدخلات
-router.post('/register', strictAuthLimiter, validate(authSchemas.register), register);
-router.post('/login', strictAuthLimiter, validate(authSchemas.login), login);
+const router = express.Router();
 
-// routes محمية (تحتاج مصادقة)
-router.get('/profile', auth, getProfile);
-router.put('/profile', auth, updateProfile); // يجب إضافة التحقق لـ updateProfile لاحقاً
+// استيراد الـ Middlewares
+const { protect } = require('../middleware/auth');
+const validate = require('../middleware/validationMiddleware');
+const { registerSchema, loginSchema } = require('../validation/schemas');
 
-// إضافة route أساسي لـ /api/auth
-router.get('/', (req, res) => {
-  res.json({
-    message: 'Auth API is working!',
-    endpoints: {
-      register: 'POST /api/auth/register',
-      login: 'POST /api/auth/login',
-      profile: 'GET /api/auth/profile',
-      updateProfile: 'PUT /api/auth/profile'
-    }
-  });
-});
+// --- المسارات العامة (Public) ---
+
+// تسجيل مستخدم جديد (مع التحقق من صحة البيانات)
+router.post('/register', validate(registerSchema), register);
+
+// تسجيل الدخول (مع التحقق من صحة البيانات)
+router.post('/login', validate(loginSchema), login);
+
+// --- المسارات المحمية (Protected) ---
+// تتطلب توكن صالح للوصول إليها
+
+router.get('/logout', protect, logout);
+router.get('/me', protect, getMe);
+router.put('/updatedetails', protect, updateDetails);
+
+// ملاحظة: يمكن إضافة مسار لتغيير كلمة المرور هنا مستقبلاً
+// router.put('/updatepassword', protect, updatePassword);
 
 module.exports = router;

@@ -1,73 +1,48 @@
 import api from './api';
 
-// ====================================================================
-// خدمات لوحة التحكم والإدارة (Admin & Vendor Services)
-// ====================================================================
+export const adminApi = {
+  // جلب إحصائيات الداشبورد
+  getStats: async () => {
+    const response = await api.get('/admin/stats');
+    return response.data;
+  },
 
-/**
- * جلب إحصائيات لوحة القيادة (Dashboard Stats)
- */
-export const getDashboardStatsApi = () => api.get('/admin/dashboard');
+  // جلب قائمة المستخدمين
+  getUsers: async () => {
+    const response = await api.get('/admin/users');
+    return response.data;
+  },
 
-/**
- * جلب قائمة الطلبات (Orders) مع دعم التصفية حسب الدور والحالة.
- */
-export const getAllOrdersAdminApi = (params) => api.get('/admin/orders', { params });
+  // جلب كل الطلبات في النظام
+  getAllOrders: async () => {
+    const response = await api.get('/orders'); // مسار الأدمن في orderRoutes
+    return response.data;
+  },
 
-/**
- * تحديث حالة طلب محدد (للمشرف أو البائع).
- */
-export const updateOrderStatusApi = (orderId, data) => api.put(`/admin/orders/${orderId}/status`, data);
+  // تحديث حالة طلب (شحن/توصيل)
+  updateOrderStatus: async (id, status) => {
+    const response = await api.put(`/orders/${id}/status`, { status });
+    return response.data;
+  },
 
-/**
- * جلب قائمة المنتجات للإدارة (Admin Products List).
- */
-export const getAllProductsAdminApi = (params) => api.get('/admin/products', { params });
+  // رفع صورة (للمنتجات أو التصنيفات)
+  uploadImage: async (formData) => {
+    const response = await api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 
-// ====================================================================
-// خدمات تحديث النظام الديناميكي (System Configs)
-// ====================================================================
+  // إدارة التصنيفات (Categories)
+  createCategory: async (data) => {
+    const response = await api.post('/categories', data);
+    return response.data;
+  },
 
-/**
- * تحديث إعدادات النظام العامة (site_name, default_currency, maintenance_mode)
- */
-export const updateConfigsApi = (data) => api.put('/admin/system/configs', data);
-
-/**
- * تحديث إعدادات الثيم (الألوان والخطوط)
- */
-export const updateThemeApi = (data) => api.put('/admin/system/theme', data);
-
-/**
- * تحديث تخطيط الصفحة الرئيسية (Layout JSONB)
- */
-export const updatePageLayoutApi = (data) => api.put('/admin/system/layout', data);
-
-
-// ====================================================================
-// خدمات CRUD للجداول الديناميكية (Categories, Banners, Shipping Zones, etc.)
-// ====================================================================
-
-// --- 1. إدارة الفئات (Categories) ---
-export const getCategoriesAdminApi = () => api.get('/admin/categories');
-export const createCategoryApi = (data) => api.post('/admin/categories', data);
-export const updateCategoryApi = (id, data) => api.put(`/admin/categories/${id}`, data);
-export const deleteCategoryApi = (id) => api.delete(`/admin/categories/${id}`);
-
-// --- 2. إدارة مناطق الشحن (Shipping Zones) ---
-export const getShippingZonesAdminApi = () => api.get('/admin/shipping-zones');
-export const createShippingZoneApi = (data) => api.post('/admin/shipping-zones', data);
-export const updateShippingZoneApi = (id, data) => api.put(`/admin/shipping-zones/${id}`, data);
-export const deleteShippingZoneApi = (id) => api.delete(`/admin/shipping-zones/${id}`);
-
-// --- 3. إدارة البنرات (Banners) ---
-export const getBannersAdminApi = () => api.get('/admin/banners');
-export const createBannerApi = (data) => api.post('/admin/banners', data);
-export const updateBannerApi = (id, data) => api.put(`/admin/banners/${id}`, data);
-export const deleteBannerApi = (id) => api.delete(`/admin/banners/${id}`);
-
-// --- 4. إدارة الترجمة (Translations) ---
-export const getTranslationsAdminApi = () => api.get('/admin/translations');
-export const createTranslationApi = (data) => api.post('/admin/translations', data);
-export const updateTranslationApi = (key, data) => api.put(`/admin/translations/${key}`, data);
-export const deleteTranslationApi = (key) => api.delete(`/admin/translations/${key}`);
+  deleteCategory: async (id) => {
+    const response = await api.delete(`/categories/${id}`);
+    return response.data;
+  }
+};

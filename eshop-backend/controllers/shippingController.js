@@ -1,80 +1,36 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const asyncHandler = require('../utils/asyncHandler');
 
-// الحصول على مناطق الشحن (بدلاً من شركات الشحن)
-const getShippingZones = async (req, res) => {
-  try {
-    // تم تغيير shipping_companies إلى shipping_zones
-    const result = await pool.query(`
-      SELECT id, name, base_cost, delivery_days_min, delivery_days_max
-      FROM shipping_zones
-      WHERE is_active = TRUE
-      ORDER BY base_cost ASC
-    `);
+// @desc    Get active shipping methods
+// @route   GET /api/shipping/methods
+// @access  Public
+exports.getShippingMethods = asyncHandler(async (req, res, next) => {
+  // نفترض وجود جدول 'shipping_methods' يحتوي على الأعمدة: id, name, price, estimated_days, is_active
+  // إذا لم يكن الجدول موجوداً، يجب إنشاؤه أو تعديل هذا الاستعلام ليعيد بيانات ثابتة مؤقتاً
 
-    res.json({
-      success: true,
-      zones: result.rows
-    });
-  } catch (error) {
-    console.error('Get shipping zones error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  }
-};
+  // استعلام لجلب الطرق النشطة فقط
+  const result = await pool.query('SELECT * FROM shipping_methods WHERE is_active = true ORDER BY price ASC');
 
-// حساب تكلفة الشحن
-const calculateShipping = async (req, res) => {
-  try {
-    // نعتمد الآن على shipping_zone_id بدلاً من company_id
-    const { shipping_zone_id, total_weight, total_price } = req.body;
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    data: result.rows
+  });
+});
 
-    const zoneResult = await pool.query(
-      'SELECT * FROM shipping_zones WHERE id = $1',
-      [shipping_zone_id]
-    );
+/* ملاحظة: إذا لم يكن لديك جدول shipping_methods في قاعدة البيانات الحالية
+يمكنك استخدام هذا الكود البديل مؤقتاً لضمان عمل الفرونت إند:
 
-    if (zoneResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Shipping zone not found'
-      });
-    }
+exports.getShippingMethods = asyncHandler(async (req, res, next) => {
+  const mockMethods = [
+    { id: 1, name: 'Standard Shipping', price: 0.00, estimated_days: '5-7 business days' },
+    { id: 2, name: 'Express Shipping', price: 15.00, estimated_days: '2-3 business days' }
+  ];
 
-    const zone = zoneResult.rows[0];
-
-    let shipping_cost = parseFloat(zone.base_cost);
-
-    // مثال منطق حساب الشحن (يمكن تطويره لاحقاً)
-    // إضافة رسوم إضافية للطلبات الكبيرة
-    if (total_price && total_price >= 500) {
-      shipping_cost *= 1.1; // زيادة 10%
-    }
-    // يمكن هنا إضافة منطق بناء على الوزن (total_weight)
-
-    const delivery_days_min = zone.delivery_days_min;
-    const delivery_days_max = zone.delivery_days_max;
-
-    res.json({
-      success: true,
-      shipping: {
-        zone: zone.name,
-        cost: shipping_cost.toFixed(2),
-        delivery_days_min: delivery_days_min,
-        delivery_days_max: delivery_days_max
-      }
-    });
-  } catch (error) {
-    console.error('Calculate shipping error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error'
-    });
-  }
-};
-
-module.exports = {
-  getShippingZones,
-  calculateShipping
-};
+  res.status(200).json({
+    success: true,
+    count: mockMethods.length,
+    data: mockMethods
+  });
+});
+*/

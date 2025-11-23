@@ -1,23 +1,28 @@
 const express = require('express');
-const router = express.Router();
 const {
-  addToCart,
   getCart,
-  updateCartItem,
+  addToCart,
   removeFromCart,
   clearCart
 } = require('../controllers/cartController');
-const auth = require('../middleware/auth');
-const validate = require('../middleware/validationMiddleware'); // استيراد التحقق
-const { cartSchemas } = require('../validation/schemas');       // استيراد المخططات
 
-// كل routes العربة تحتاج مصادقة
-router.use(auth);
+// استيراد وسيط الحماية (ضروري لأن السلة مرتبطة بالمستخدم)
+const { protect } = require('../middleware/auth');
 
-router.post('/', validate(cartSchemas.addToCart), addToCart);
-router.get('/', getCart);
-router.put('/:id', validate(cartSchemas.updateCart), updateCartItem);
-router.delete('/:id', removeFromCart);
-router.delete('/', clearCart);
+const router = express.Router();
+
+// تطبيق الحماية على كل المسارات في هذا الملف
+router.use(protect);
+
+// المسار: /api/cart
+router.route('/')
+  .get(getCart)       // عرض محتويات السلة
+  .post(addToCart)    // إضافة منتج للسلة
+  .delete(clearCart); // إفراغ السلة بالكامل
+
+// المسار: /api/cart/:id
+// ملاحظة: id هنا هو معرف السجل في السلة (item id) وليس معرف المنتج
+router.route('/:id')
+  .delete(removeFromCart); // حذف عنصر محدد
 
 module.exports = router;

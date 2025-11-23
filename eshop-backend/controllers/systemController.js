@@ -1,90 +1,44 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
+const asyncHandler = require('../utils/asyncHandler');
 
-// ============================================================
-// دالة التشغيل الأولي (Bootstrap API)
-// ============================================================
-const getSystemConfig = async (req, res) => {
-  try {
-    // تحديد اللغة المطلوبة (الافتراضي العربية)
-    const lang = req.query.lang || 'ar';
+// @desc    Get active banners for homepage
+// @route   GET /api/public/banners
+// @access  Public
+exports.getBanners = asyncHandler(async (req, res, next) => {
+  // جلب البنرات النشطة فقط وترتيبها حسب الأولوية (sort_order)
+  const query = `
+    SELECT * FROM banners
+    WHERE is_active = true
+    ORDER BY sort_order ASC
+  `;
 
-    // استخدام Promise.all لتنفيذ جميع الاستعلامات في وقت واحد
-    const [
-      configsResult,
-      themeResult,
-      translationsResult,
-      layoutResult,
-      zonesResult,
-      bannersResult,
-      flashSalesResult
-    ] = await Promise.all([
-      // 1. جلب إعدادات النظام العامة (الاسم، اللوجو، العملة)
-      pool.query('SELECT key, value, type FROM system_configs'),
+  const result = await pool.query(query);
 
-      // 2. جلب إعدادات الثيم (الألوان والخطوط)
-      pool.query('SELECT variable_name, value FROM theme_settings'),
+  res.status(200).json({
+    success: true,
+    count: result.rows.length,
+    data: result.rows
+  });
+});
 
-      // 3. جلب الترجمات والنصوص حسب اللغة المطلوبة
-      pool.query('SELECT key, value FROM ui_translations WHERE lang_code = $1', [lang]),
+// @desc    Get public bootstrap configuration
+// @route   GET /api/public/bootstrap
+// @access  Public
+exports.getBootstrap = asyncHandler(async (req, res, next) => {
+  // إرجاع إعدادات عامة للفرونت إند (مثل العملة، اسم الموقع، حالة الصيانة)
+  // يمكن لاحقاً جلب هذه البيانات من جدول 'settings' إذا تم إنشاؤه
+  const config = {
+    appName: 'EShop',
+    currency: {
+      code: 'USD',
+      symbol: '$'
+    },
+    supportEmail: 'support@eshop.com',
+    maintenanceMode: false
+  };
 
-      // 4. جلب تخطيط الصفحة الرئيسية (ترتيب المكونات)
-      // نستخدم COALESCE لضمان أننا نحصل على مصفوفة فارغة إذا لم يوجد تخطيط
-      pool.query("SELECT components FROM page_layouts WHERE page_slug = 'home'"),
-
-      // 5. جلب مناطق الشحن النشطة
-      pool.query('SELECT id, name, base_cost, country_code FROM shipping_zones WHERE is_active = true'),
-
-      // 6. جلب البنرات النشطة للسلايدر الرئيسي
-      pool.query("SELECT * FROM banners WHERE position = 'main_slider' AND is_active = true ORDER BY sort_order ASC"),
-
-      // 7. جلب العروض المؤقتة السارية
-      pool.query("SELECT * FROM flash_sales WHERE is_active = true AND end_time > NOW()")
-    ]);
-
-    // --- معالجة البيانات لتسهيل قراءتها في الفرونت إند ---
-
-    // تحويل الإعدادات من مصفوفة إلى كائن (Object)
-    const config = configsResult.rows.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
-      return acc;
-    }, {});
-
-    // تحويل الثيم إلى كائن
-    const theme = themeResult.rows.reduce((acc, curr) => {
-      acc[curr.variable_name] = curr.value;
-      return acc;
-    }, {});
-
-    // تحويل الترجمات إلى كائن
-    const translations = translationsResult.rows.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
-      return acc;
-    }, {});
-
-    // جلب مكونات التخطيط بأمان (إذا كانت موجودة في الصف الأول)
-    const layoutComponents = layoutResult.rows[0]?.components || [];
-
-    // إرسال الرد النهائي
-    res.json({
-      success: true,
-      data: {
-        config,              // إعدادات عامة
-        theme,               // ألوان وخطوط
-        translations,        // نصوص
-        layout: layoutComponents, // ترتيب الصفحة الرئيسية
-        shipping_zones: zonesResult.rows, // المدن المدعومة
-        banners: bannersResult.rows,      // صور السلايدر
-        flash_sales: flashSalesResult.rows // العروض المؤقتة
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Bootstrap Critical Error:', error);
-    // إرجاع خطأ 500 ليتمكن الـ Frontend من التقاطه
-    res.status(500).json({ success: false, error: 'System Configuration Load Failure' });
-  }
-};
-
-module.exports = {
-  getSystemConfig
-};
+  res.status(200).json({
+    success: true,
+    data: config
+  });
+});

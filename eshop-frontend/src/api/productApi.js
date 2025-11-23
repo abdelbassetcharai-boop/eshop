@@ -1,52 +1,56 @@
 import api from './api';
 
-// ====================================================================
-// خدمات المنتجات والفئات (Product & Category Services)
-// ====================================================================
+export const productApi = {
+  // --- للعامة ---
 
-/**
- * جلب جميع المنتجات مع خيارات التصفية والبحث (لصفحة Shop).
- * @param {object} params - معلمات الاستعلام (page, limit, categoryId, search).
- */
-export const getAllProductsApi = (params) => api.get('/products', { params });
+  // جلب كل المنتجات (مع دعم التصفية والترقيم)
+  // params: { page, limit, keyword, category }
+  getAll: async (params) => {
+    const response = await api.get('/products', { params });
+    return response.data;
+  },
 
-/**
- * جلب تفاصيل منتج محدد.
- */
-export const getProductByIdApi = (productId) => api.get(`/products/${productId}`);
+  // جلب منتج واحد بالتفصيل
+  getById: async (id) => {
+    const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
 
-/**
- * جلب جميع الفئات النشطة.
- */
-export const getAllCategoriesApi = () => api.get('/categories');
+  // جلب تقييمات منتج
+  getReviews: async (productId) => {
+    const response = await api.get(`/products/${productId}/reviews`);
+    return response.data;
+  },
 
-// ====================================================================
-// خدمات CRUD للمنتجات (للبائعين/المشرفين)
-// ====================================================================
+  // إضافة تقييم (يتطلب تسجيل دخول)
+  addReview: async (productId, reviewData) => {
+    const response = await api.post(`/products/${productId}/reviews`, reviewData);
+    return response.data;
+  },
 
-/**
- * إنشاء منتج جديد (يتطلب دور Vendor/Admin).
- */
-export const createProductApi = (data) => api.post('/products', data);
+  // --- للأدمن فقط ---
 
-/**
- * تحديث منتج موجود (يتطلب دور Vendor/Admin).
- */
-export const updateProductApi = (id, data) => api.put(`/products/${id}`, data);
+  // إنشاء منتج جديد
+  create: async (productData) => {
+    const response = await api.post('/products', productData);
+    return response.data;
+  },
 
-/**
- * حذف منتج (يتطلب دور Vendor/Admin).
- */
-export const deleteProductApi = (id) => api.delete(`/products/${id}`);
+  // تحديث منتج
+  update: async (id, productData) => {
+    const response = await api.put(`/products/${id}`, productData);
+    return response.data;
+  },
 
+  // حذف منتج
+  delete: async (id) => {
+    const response = await api.delete(`/products/${id}`);
+    return response.data;
+  },
 
-// ====================================================================
-// خدمات التقييمات (Reviews) - تتطلب مصادقة
-// ====================================================================
-
-/**
- * إضافة تقييم لمنتج محدد.
- * @param {number} productId - معرّف المنتج.
- * @param {object} data - يحتوي على rating (1-5) و comment.
- */
-export const addReviewApi = (productId, data) => api.post(`/products/${productId}/reviews`, data);
+  // جلب التصنيفات (Categories) - سنضعها هنا لتسهيل الاستخدام
+  getCategories: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  }
+};
