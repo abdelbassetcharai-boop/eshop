@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   register,
+  registerVendor, // دالة تسجيل البائع الجديدة
   login,
   getMe,
   logout,
@@ -12,14 +13,21 @@ const router = express.Router();
 // استيراد الـ Middlewares
 const { protect } = require('../middleware/auth');
 const validate = require('../middleware/validationMiddleware');
-const { registerSchema, loginSchema } = require('../validation/schemas');
+const {
+  registerSchema,
+  vendorRegisterSchema, // مخطط التحقق الخاص بالبائع
+  loginSchema
+} = require('../validation/schemas');
 
 // --- المسارات العامة (Public) ---
 
-// تسجيل مستخدم جديد (مع التحقق من صحة البيانات)
+// تسجيل مستخدم جديد (عميل)
 router.post('/register', validate(registerSchema), register);
 
-// تسجيل الدخول (مع التحقق من صحة البيانات)
+// تسجيل بائع جديد (New)
+router.post('/vendor/register', validate(vendorRegisterSchema), registerVendor);
+
+// تسجيل الدخول
 router.post('/login', validate(loginSchema), login);
 
 // --- المسارات المحمية (Protected) ---
@@ -28,8 +36,5 @@ router.post('/login', validate(loginSchema), login);
 router.get('/logout', protect, logout);
 router.get('/me', protect, getMe);
 router.put('/updatedetails', protect, updateDetails);
-
-// ملاحظة: يمكن إضافة مسار لتغيير كلمة المرور هنا مستقبلاً
-// router.put('/updatepassword', protect, updatePassword);
 
 module.exports = router;

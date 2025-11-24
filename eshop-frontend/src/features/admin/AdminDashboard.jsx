@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../api/adminApi';
 import Spinner from '../../components/ui/Spinner';
-import { Users, ShoppingBag, DollarSign, Package } from 'lucide-react';
+import { Users, ShoppingBag, DollarSign, Package, Store } from 'lucide-react';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
   <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -20,6 +20,14 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
     </div>
   </div>
 );
+
+// دالة مساعدة للتأكد من أن القيمة رقمية قبل تنسيقها
+const formatCurrency = (value) => {
+    // التحويل إلى رقم (حتى لو كانت سلسلة نصية)
+    const num = parseFloat(value);
+    // التحقق مما إذا كانت القيمة صالحة قبل تطبيق toFixed، إذا لم تكن صالحة نرجع 0.00
+    return isNaN(num) || !isFinite(num) ? '$0.00' : `$${num.toFixed(2)}`;
+};
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -46,32 +54,43 @@ const AdminDashboard = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">نظرة عامة</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">نظرة عامة على النظام</h2>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* إجمالي عمولة المدير - تم تطبيق دالة الحماية formatCurrency */}
         <StatCard
-          title="إجمالي الإيرادات"
-          value={`$${stats?.totalRevenue?.toFixed(2) || 0}`}
+          title="إجمالي عمولة المدير"
+          value={formatCurrency(stats?.totalAdminRevenue)}
           icon={DollarSign}
           color="bg-green-500"
         />
+        {/* إجمالي الطلبات */}
         <StatCard
           title="إجمالي الطلبات"
           value={stats?.orders || 0}
           icon={ShoppingBag}
           color="bg-blue-500"
         />
+        {/* عدد المستخدمين */}
         <StatCard
-          title="المستخدمين"
+          title="المستخدمين (العملاء)"
           value={stats?.users || 0}
           icon={Users}
           color="bg-indigo-500"
         />
+        {/* عدد المنتجات */}
         <StatCard
-          title="المنتجات"
+          title="إجمالي المنتجات"
           value={stats?.products || 0}
           icon={Package}
           color="bg-orange-500"
+        />
+        {/* عدد البائعين */}
+        <StatCard
+          title="إجمالي البائعين"
+          value={stats?.vendors || 0}
+          icon={Store}
+          color="bg-purple-500"
         />
       </div>
     </div>

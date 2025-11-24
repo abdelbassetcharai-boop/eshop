@@ -1,25 +1,25 @@
 import api from './api';
 
 export const adminApi = {
-  // جلب إحصائيات الداشبورد
+  // --- إحصائيات عامة ---
   getStats: async () => {
     const response = await api.get('/admin/stats');
     return response.data;
   },
 
-  // جلب قائمة المستخدمين
+  // --- إدارة المستخدمين (العملاء) ---
   getUsers: async () => {
     const response = await api.get('/admin/users');
     return response.data;
   },
 
-  // جلب كل الطلبات في النظام
+  // --- إدارة الطلبات (الكل) ---
   getAllOrders: async () => {
-    const response = await api.get('/orders'); // مسار الأدمن في orderRoutes
+    const response = await api.get('/orders');
     return response.data;
   },
 
-  // تحديث حالة طلب (شحن/توصيل)
+  // تحديث حالة طلب
   updateOrderStatus: async (id, status) => {
     const response = await api.put(`/orders/${id}/status`, { status });
     return response.data;
@@ -43,6 +43,34 @@ export const adminApi = {
 
   deleteCategory: async (id) => {
     const response = await api.delete(`/categories/${id}`);
+    return response.data;
+  },
+
+  // ------------------------------------------
+  // --- دوال إدارة البائعين والمدفوعات (جديد) ---
+  // ------------------------------------------
+
+  // جلب قائمة البائعين (VendorsTable)
+  getVendorsList: async () => {
+    const response = await api.get('/admin/vendors');
+    return response.data;
+  },
+
+  // اعتماد حساب بائع
+  approveVendor: async (userId) => {
+    const response = await api.put(`/admin/vendors/${userId}/approve`);
+    return response.data;
+  },
+
+  // جلب طلبات السحب (PayoutRequests.jsx)
+  getPayoutRequests: async () => {
+    const response = await api.get('/admin/payouts');
+    return response.data;
+  },
+
+  // معالجة طلب سحب
+  processPayout: async (payoutId) => {
+    const response = await api.put(`/admin/payouts/${payoutId}/process`);
     return response.data;
   }
 };

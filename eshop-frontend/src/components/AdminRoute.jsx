@@ -10,12 +10,12 @@ const AdminRoute = () => {
     return <LoadingSpinner />;
   }
 
-  // يجب أن يكون مسجلاً للدخول + أن يكون دوره 'admin'
+  // يجب أن يكون مسجلاً للدخول + أن يكون دوره 'admin' فقط
   if (isAuthenticated && user?.role === 'admin') {
     return <Outlet />;
   }
 
-  // إذا كان مسجلاً ولكن ليس أدمن، نعيده للصفحة الرئيسية
+  // إذا كان مسجلاً ولكن ليس أدمن (قد يكون بائع أو عميل)، نعيده للصفحة الرئيسية
   // إذا لم يكن مسجلاً، نعيده لصفحة الدخول
   return isAuthenticated ? <Navigate to="/" replace /> : <Navigate to="/login" replace />;
 };

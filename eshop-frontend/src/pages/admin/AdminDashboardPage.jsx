@@ -5,7 +5,9 @@ import CategoryManagement from '../../features/admin/CategoryManagement';
 import OrdersTable from '../../features/admin/OrdersTable';
 import UsersTable from '../../features/admin/UsersTable';
 import SystemSettings from '../../features/admin/SystemSettings';
-import { LayoutDashboard, Package, List, ShoppingBag, Users, Settings } from 'lucide-react';
+import VendorsTable from '../../features/admin/VendorsTable'; // جديد: جدول البائعين
+import PayoutRequests from '../../features/admin/PayoutRequests'; // جديد: طلبات السحب
+import { LayoutDashboard, Package, List, ShoppingBag, Users, Settings, Store, DollarSign } from 'lucide-react'; // استيراد أيقونات جديدة
 
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,6 +17,10 @@ const AdminDashboardPage = () => {
     { id: 'products', label: 'المنتجات', icon: Package, component: ProductManagement },
     { id: 'categories', label: 'التصنيفات', icon: List, component: CategoryManagement },
     { id: 'orders', label: 'الطلبات', icon: ShoppingBag, component: OrdersTable },
+    // علامات التبويب الجديدة لإدارة البائعين
+    { id: 'vendors', label: 'إدارة البائعين', icon: Store, component: VendorsTable },
+    { id: 'payouts', label: 'مدفوعات البائعين', icon: DollarSign, component: PayoutRequests },
+    // علامات التبويب القديمة
     { id: 'users', label: 'المستخدمين', icon: Users, component: UsersTable },
     { id: 'settings', label: 'الإعدادات', icon: Settings, component: SystemSettings },
   ];

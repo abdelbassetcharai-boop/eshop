@@ -63,6 +63,7 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/public', require('./routes/public'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/vendor', require('./routes/vendor')); // جديد: مسارات لوحة البائع
 
 // المسار الرئيسي للفحص
 app.get('/', (req, res) => {

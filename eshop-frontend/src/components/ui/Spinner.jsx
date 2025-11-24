@@ -9,7 +9,7 @@ const Spinner = ({ size = 'md' }) => {
 
   return (
     <div className="flex justify-center items-center">
-      <div className={`animate-spin rounded-full border-b-2 border-indigo-600 ${sizes[size]}`}></div>
+      <div className={`animate-spin rounded-full border-b-2 border-t-2 border-indigo-600 ${sizes[size]} transform transition-all duration-500 hover:scale-125 hover:border-pink-500`}></div>
     </div>
   );
 };

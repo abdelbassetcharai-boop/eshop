@@ -6,10 +6,10 @@ const asyncHandler = require('../utils/asyncHandler');
 // @route   GET /api/cart
 // @access  Private
 exports.getCart = asyncHandler(async (req, res, next) => {
-  // جلب عناصر السلة مع تفاصيل المنتج (الاسم، السعر، الصورة) باستخدام JOIN
+  // تعديل: استخدام الجدول 'cart' بدلاً من 'cart_items'
   const query = `
     SELECT ci.id, ci.product_id, ci.quantity, p.name, p.price, p.image_url, p.stock
-    FROM cart_items ci
+    FROM cart ci
     JOIN products p ON ci.product_id = p.id
     WHERE ci.user_id = $1
     ORDER BY ci.created_at DESC
@@ -38,13 +38,8 @@ exports.addToCart = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Product not found', 404));
   }
 
-  // (اختياري: التحقق من الكمية المتوفرة)
-  // if (productCheck.rows[0].stock < qty) {
-  //   return next(new ErrorResponse('Not enough stock available', 400));
-  // }
-
-  // 2. التحقق مما إذا كان المنتج موجوداً بالفعل في سلة المستخدم
-  const checkQuery = 'SELECT * FROM cart_items WHERE user_id = $1 AND product_id = $2';
+  // 2. التحقق مما إذا كان المنتج موجوداً بالفعل في سلة المستخدم (باستخدام الجدول cart)
+  const checkQuery = 'SELECT * FROM cart WHERE user_id = $1 AND product_id = $2';
   const checkResult = await pool.query(checkQuery, [req.user.id, productId]);
 
   let result;
@@ -52,7 +47,7 @@ exports.addToCart = asyncHandler(async (req, res, next) => {
   if (checkResult.rows.length > 0) {
     // إذا كان موجوداً، نقوم بتحديث الكمية فقط
     const updateQuery = `
-      UPDATE cart_items
+      UPDATE cart
       SET quantity = quantity + $1
       WHERE user_id = $2 AND product_id = $3
       RETURNING *
@@ -61,7 +56,7 @@ exports.addToCart = asyncHandler(async (req, res, next) => {
   } else {
     // إذا لم يكن موجوداً، نقوم بإضافته كعنصر جديد
     const insertQuery = `
-      INSERT INTO cart_items (user_id, product_id, quantity)
+      INSERT INTO cart (user_id, product_id, quantity)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
@@ -79,10 +74,11 @@ exports.addToCart = asyncHandler(async (req, res, next) => {
 // @route   DELETE /api/cart/:id
 // @access  Private
 exports.removeFromCart = asyncHandler(async (req, res, next) => {
-  const { id } = req.params; // هذا هو id الخاص بسجل cart_items وليس product_id
+  const { id } = req.params;
 
+  // تعديل: الحذف من الجدول 'cart'
   const result = await pool.query(
-    'DELETE FROM cart_items WHERE id = $1 AND user_id = $2 RETURNING *',
+    'DELETE FROM cart WHERE id = $1 AND user_id = $2 RETURNING *',
     [id, req.user.id]
   );
 
@@ -101,7 +97,8 @@ exports.removeFromCart = asyncHandler(async (req, res, next) => {
 // @route   DELETE /api/cart
 // @access  Private
 exports.clearCart = asyncHandler(async (req, res, next) => {
-  await pool.query('DELETE FROM cart_items WHERE user_id = $1', [req.user.id]);
+  // تعديل: إفراغ الجدول 'cart'
+  await pool.query('DELETE FROM cart WHERE user_id = $1', [req.user.id]);
 
   res.status(200).json({
     success: true,

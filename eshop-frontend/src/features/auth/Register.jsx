@@ -60,7 +60,7 @@ const Register = () => {
             <UserPlus className="h-6 w-6 text-green-600" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            إنشاء حساب جديد
+            إنشاء حساب جديد (عميل)
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             انضم إلينا واستمتع بأفضل العروض
@@ -116,12 +116,18 @@ const Register = () => {
             size="lg"
             isLoading={isSubmitting}
           >
-            تسجيل
+            تسجيل كعميل
           </Button>
         </form>
 
         <div className="text-center mt-4">
            <p className="text-sm text-gray-600">
+             هل تريد البيع على منصتنا؟{' '}
+             <Link to="/register-vendor" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
+               سجل كبائع هنا
+             </Link>
+           </p>
+           <p className="text-sm text-gray-600 mt-2">
              لديك حساب بالفعل؟{' '}
              <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
                سجل دخولك هنا

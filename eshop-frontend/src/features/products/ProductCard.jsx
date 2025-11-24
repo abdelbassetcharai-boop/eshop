@@ -7,20 +7,29 @@ import { ShoppingCart } from 'lucide-react';
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
 
-  // معالجة رابط الصورة لتوافقه مع الباك إند
-  const imageUrl = product.image_url
-    ? (product.image_url.startsWith('http')
-        ? product.image_url
-        : `${import.meta.env.VITE_API_URL.replace('/api', '')}${product.image_url}`)
-    : 'https://via.placeholder.com/300';
+  // --- إصلاح رابط الصورة (نفس المنطق المستخدم في ProductDetail) ---
+  // 1. تحديد رابط السيرفر الأساسي
+  const API_BASE_URL = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace('/api', '')
+    : 'http://localhost:5000';
+
+  // 2. دالة لمعالجة رابط الصورة
+  const getImageUrl = (url) => {
+    if (!url) return 'https://via.placeholder.com/300'; // صورة احتياطية
+    if (url.startsWith('http')) return url; // رابط خارجي جاهز
+    return `${API_BASE_URL}${url}`; // رابط محلي: نضيف له عنوان السيرفر
+  };
+
+  const imageUrl = getImageUrl(product.image_url);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full group">
-      <div className="relative aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-200">
+      {/* استخدام aspect-square لضمان أبعاد صحيحة للصورة */}
+      <div className="relative aspect-square w-full overflow-hidden bg-gray-200">
         <img
           src={imageUrl}
           alt={product.name}
-          className="w-full h-48 object-cover object-center group-hover:scale-105 transition-transform duration-300"
+          className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
           onError={(e) => { e.target.src = 'https://via.placeholder.com/300?text=No+Image'; }}
         />
       </div>
