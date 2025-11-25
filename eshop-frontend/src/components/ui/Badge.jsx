@@ -1,16 +1,27 @@
 import React from 'react';
+import { twMerge } from 'tailwind-merge';
+import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
-const Badge = ({ children, variant = 'default' }) => {
+const Badge = ({ children, variant = 'default', className }) => {
+  const { i18n } = useTranslation();
+  const isRTL = i18n.dir() === 'rtl';
+
   const variants = {
-    default: 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 transform transition-all duration-300 hover:scale-110',
-    success: 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 transform transition-all duration-300 hover:scale-110',
-    warning: 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 transform transition-all duration-300 hover:scale-110',
-    danger: 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 transform transition-all duration-300 hover:scale-110',
-    info: 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 transform transition-all duration-300 hover:scale-110',
+    default: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200',
+    success: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
+    warning: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400',
+    danger: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
+    info: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
+    primary: 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-400',
   };
 
+  const baseStyles = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+    isRTL ? 'font-cairo' : 'font-inter'
+  }`;
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium animate-pulse ${variants[variant] || variants.default}`}>
+    <span className={twMerge(clsx(baseStyles, variants[variant], className))}>
       {children}
     </span>
   );

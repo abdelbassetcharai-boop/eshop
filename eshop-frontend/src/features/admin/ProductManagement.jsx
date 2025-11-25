@@ -7,8 +7,11 @@ import { Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ProductForm from './ProductForm';
 import Modal from '../../components/ui/Modal';
+import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 
 const ProductManagement = () => {
+  const { t } = useTranslation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -22,7 +25,7 @@ const ProductManagement = () => {
         setProducts(res.data);
       }
     } catch (error) {
-      toast.error('فشل تحميل المنتجات');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -33,13 +36,13 @@ const ProductManagement = () => {
   }, []);
 
   const handleDelete = async (id) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+    if (window.confirm(t('common.confirm_delete') || 'Are you sure you want to delete this item?')) {
       try {
         await productApi.delete(id);
         setProducts(products.filter(p => p.id !== id));
-        toast.success('تم حذف المنتج');
+        toast.success(t('common.success_delete') || 'Deleted successfully');
       } catch (error) {
-        toast.error('فشل حذف المنتج');
+        toast.error(t('common.error'));
       }
     }
   };
@@ -64,56 +67,96 @@ const ProductManagement = () => {
     fetchProducts(); // إعادة تحميل القائمة
   };
 
-  if (loading) return <div className="py-10"><Spinner /></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" variant="primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-900">إدارة المنتجات</h2>
-        <Button onClick={handleAddNew} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> إضافة منتج
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          {t('admin.product_management') || 'Product Management'}
+        </h2>
+        <Button onClick={handleAddNew} className="flex items-center gap-2 shadow-lg shadow-primary-500/20">
+          <Plus className="h-4 w-4" />
+          {t('admin.add_product') || 'Add Product'}
         </Button>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white dark:bg-dark-card shadow-sm rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden"
+      >
         <Table>
           <TableHead>
             <TableHeader>ID</TableHeader>
-            <TableHeader>الاسم</TableHeader>
-            <TableHeader>السعر</TableHeader>
-            <TableHeader>المخزون</TableHeader>
-            <TableHeader>إجراءات</TableHeader>
+            <TableHeader>{t('product.name') || 'Name'}</TableHeader>
+            <TableHeader>{t('product.price') || 'Price'}</TableHeader>
+            <TableHeader>{t('product.stock') || 'Stock'}</TableHeader>
+            <TableHeader>{t('common.actions') || 'Actions'}</TableHeader>
           </TableHead>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>#{product.id}</TableCell>
-                <TableCell>
-                  <div className="font-medium text-gray-900">{product.name}</div>
-                </TableCell>
-                <TableCell>${Number(product.price).toFixed(2)}</TableCell>
-                <TableCell>{product.stock}</TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <button onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900">
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-900">
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {products.length === 0 ? (
+               <tr>
+                 <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                   {t('shop.no_products')}
+                 </td>
+               </tr>
+            ) : (
+              products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>#{product.id}</TableCell>
+                  <TableCell>
+                    <div className="font-medium text-gray-900 dark:text-white">{product.name}</div>
+                  </TableCell>
+                  <TableCell>${Number(product.price).toFixed(2)}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      product.stock > 10
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : product.stock > 0
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                    }`}>
+                      {product.stock}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2 rtl:space-x-reverse">
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="p-2 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                        title={t('common.edit')}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
-      </div>
+      </motion.div>
 
       {/* نموذج الإضافة/التعديل */}
       <Modal
         isOpen={isFormOpen}
         onClose={handleFormClose}
-        title={editingProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}
+        title={editingProduct ? (t('admin.edit_product') || 'Edit Product') : (t('admin.add_product') || 'Add Product')}
       >
         <ProductForm
           product={editingProduct}

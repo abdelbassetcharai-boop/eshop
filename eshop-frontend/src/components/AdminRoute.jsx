@@ -1,13 +1,14 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
 const AdminRoute = () => {
   const { user, isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner fullScreen />;
   }
 
   // يجب أن يكون مسجلاً للدخول + أن يكون دوره 'admin' فقط
@@ -16,8 +17,12 @@ const AdminRoute = () => {
   }
 
   // إذا كان مسجلاً ولكن ليس أدمن (قد يكون بائع أو عميل)، نعيده للصفحة الرئيسية
-  // إذا لم يكن مسجلاً، نعيده لصفحة الدخول
-  return isAuthenticated ? <Navigate to="/" replace /> : <Navigate to="/login" replace />;
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  // إذا لم يكن مسجلاً، نعيده لصفحة الدخول مع حفظ المسار للعودة إليه
+  return <Navigate to="/login" state={{ from: location }} replace />;
 };
 
 export default AdminRoute;

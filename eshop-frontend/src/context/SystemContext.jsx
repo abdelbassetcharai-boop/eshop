@@ -1,5 +1,5 @@
-import { createContext, useState, useEffect, useContext } from 'react';
-import api from '../api/api'; // استخدام العميل المباشر لأن هذه المسارات عامة
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import api from '../api/api';
 
 const SystemContext = createContext();
 
@@ -13,14 +13,23 @@ export const SystemProvider = ({ children }) => {
   useEffect(() => {
     const fetchSystemData = async () => {
       try {
-        // جلب الإعدادات والبنرات بشكل متوازي
-        const [configRes, bannersRes] = await Promise.all([
+        // جلب البيانات العامة (البنرات والإعدادات)
+        // نستخدم Promise.allSettled لضمان عدم توقف التطبيق لو فشل أحدهما
+        const results = await Promise.allSettled([
           api.get('/public/bootstrap'),
           api.get('/public/banners')
         ]);
 
-        if (configRes.data.success) setConfig(configRes.data.data);
-        if (bannersRes.data.success) setBanners(bannersRes.data.data);
+        const configRes = results[0];
+        const bannersRes = results[1];
+
+        if (configRes.status === 'fulfilled' && configRes.value.data.success) {
+            setConfig(configRes.value.data.data);
+        }
+
+        if (bannersRes.status === 'fulfilled' && bannersRes.value.data.success) {
+            setBanners(bannersRes.value.data.data);
+        }
 
       } catch (error) {
         console.error('Failed to load system data', error);

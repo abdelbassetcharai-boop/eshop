@@ -1,31 +1,30 @@
 import api from './api';
 
 export const adminApi = {
-  // --- إحصائيات عامة ---
+  // --- إحصائيات ---
   getStats: async () => {
     const response = await api.get('/admin/stats');
     return response.data;
   },
 
-  // --- إدارة المستخدمين (العملاء) ---
+  // --- المستخدمين ---
   getUsers: async () => {
     const response = await api.get('/admin/users');
     return response.data;
   },
 
-  // --- إدارة الطلبات (الكل) ---
+  // --- الطلبات ---
   getAllOrders: async () => {
-    const response = await api.get('/orders');
+    const response = await api.get('/orders'); // مسار مشترك (للأدمن صلاحية رؤية الكل)
     return response.data;
   },
 
-  // تحديث حالة طلب
   updateOrderStatus: async (id, status) => {
     const response = await api.put(`/orders/${id}/status`, { status });
     return response.data;
   },
 
-  // رفع صورة (للمنتجات أو التصنيفات)
+  // --- الصور ---
   uploadImage: async (formData) => {
     const response = await api.post('/upload', formData, {
       headers: {
@@ -35,7 +34,7 @@ export const adminApi = {
     return response.data;
   },
 
-  // إدارة التصنيفات (Categories)
+  // --- التصنيفات ---
   createCategory: async (data) => {
     const response = await api.post('/categories', data);
     return response.data;
@@ -46,29 +45,22 @@ export const adminApi = {
     return response.data;
   },
 
-  // ------------------------------------------
-  // --- دوال إدارة البائعين والمدفوعات (جديد) ---
-  // ------------------------------------------
-
-  // جلب قائمة البائعين (VendorsTable)
+  // --- البائعين والمدفوعات ---
   getVendorsList: async () => {
     const response = await api.get('/admin/vendors');
     return response.data;
   },
 
-  // اعتماد حساب بائع
   approveVendor: async (userId) => {
     const response = await api.put(`/admin/vendors/${userId}/approve`);
     return response.data;
   },
 
-  // جلب طلبات السحب (PayoutRequests.jsx)
   getPayoutRequests: async () => {
     const response = await api.get('/admin/payouts');
     return response.data;
   },
 
-  // معالجة طلب سحب
   processPayout: async (payoutId) => {
     const response = await api.put(`/admin/payouts/${payoutId}/process`);
     return response.data;

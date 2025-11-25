@@ -4,8 +4,8 @@ export const productApi = {
   // --- للعامة ---
 
   // جلب كل المنتجات (مع دعم التصفية والترقيم)
-  // params: { page, limit, keyword, category }
   getAll: async (params) => {
+    // params: { page, limit, keyword, category }
     const response = await api.get('/products', { params });
     return response.data;
   },
@@ -22,13 +22,13 @@ export const productApi = {
     return response.data;
   },
 
-  // إضافة تقييم (يتطلب تسجيل دخول)
+  // إضافة تقييم
   addReview: async (productId, reviewData) => {
     const response = await api.post(`/products/${productId}/reviews`, reviewData);
     return response.data;
   },
 
-  // --- للأدمن فقط ---
+  // --- للأدمن والبائع ---
 
   // إنشاء منتج جديد
   create: async (productData) => {
@@ -48,7 +48,7 @@ export const productApi = {
     return response.data;
   },
 
-  // جلب التصنيفات (Categories) - سنضعها هنا لتسهيل الاستخدام
+  // جلب التصنيفات
   getCategories: async () => {
     const response = await api.get('/categories');
     return response.data;

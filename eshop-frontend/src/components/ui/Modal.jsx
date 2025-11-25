@@ -1,41 +1,55 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-
+const Modal = ({ isOpen, onClose, title, children, className }) => {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto animate-in fade-in-50 duration-300">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div
-            className="absolute inset-0 bg-gray-500 opacity-75 animate-in fade-in-50 duration-300"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden overflow-y-auto outline-none focus:outline-none">
+          {/* الخلفية المعتمة (Backdrop) */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-          ></div>
-        </div>
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          />
 
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full animate-in slide-in-from-bottom-10 duration-300">
-          <div className="bg-gradient-to-br from-white to-gray-50 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 transform transition-all duration-300 hover:scale-105">
+          {/* محتوى النافذة (Content) */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className={twMerge(clsx(
+              "relative w-full max-w-lg bg-white dark:bg-dark-card rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col",
+              className
+            ))}
+          >
+            {/* الرأس (Header) */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {title}
               </h3>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 transform transition-all duration-300 hover:scale-125 hover:rotate-90"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-full transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="mt-2 transform transition-all duration-500">
+
+            {/* الجسم (Body) */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
               {children}
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 

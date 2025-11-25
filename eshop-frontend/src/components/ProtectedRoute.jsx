@@ -8,15 +8,15 @@ const ProtectedRoute = () => {
   const location = useLocation();
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner fullScreen />;
   }
 
-  return isAuthenticated ? (
-    <Outlet />
-  ) : (
-    // توجيه المستخدم لصفحة الدخول مع حفظ الصفحة التي كان يحاول الوصول إليها
-    <Navigate to="/login" state={{ from: location }} replace />
-  );
+  if (!isAuthenticated) {
+    // إعادة توجيه المستخدم إلى صفحة تسجيل الدخول مع حفظ الموقع الذي أتى منه
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

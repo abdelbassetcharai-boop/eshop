@@ -1,6 +1,8 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { authApi } from '../api/authApi';
 import { toast } from 'react-toastify';
+// استيراد jwt-decode بشكل صحيح حسب المكتبة المثبتة (قد تحتاج لتعديل الاستيراد حسب النسخة)
+import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext();
 
@@ -11,10 +13,27 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // دالة للتحقق من المستخدم عند تحميل الصفحة
-  const loadUser = async () => {
+  // التحقق من صلاحية التوكن
+  const isTokenValid = (token) => {
+    if (!token) return false;
+    try {
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      return decoded.exp > currentTime;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const loadUser = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (!token) {
+
+    if (!token || !isTokenValid(token)) {
+      if (token) {
+        // التوكن موجود لكنه منتهي الصلاحية
+        localStorage.removeItem('token');
+        toast.info('انتهت جلسة الدخول، يرجى تسجيل الدخول مرة أخرى');
+      }
       setLoading(false);
       return;
     }
@@ -33,11 +52,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadUser();
-  }, []);
+  }, [loadUser]);
 
   const register = async (userData) => {
     try {
@@ -67,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
     } catch (error) {
-      const message = error.response?.data?.error || 'فشل تسجيل الدخول';
+      const message = error.response?.data?.error || 'بيانات الدخول غير صحيحة';
       toast.error(message);
       return false;
     }
@@ -75,14 +94,16 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // محاولة تسجيل الخروج من السيرفر (اختياري حسب الباك إند)
       await authApi.logout();
     } catch (err) {
-      console.error(err);
+      console.error('Logout error', err);
     }
     localStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
     toast.info('تم تسجيل الخروج');
+    // يمكن استخدام navigate هنا إذا تم تمريره أو الاعتماد على تحديث الحالة لإعادة التوجيه في المكونات
     window.location.href = '/login';
   };
 
@@ -108,12 +129,12 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateProfile,
-    checkAuth: loadUser // تصدير الدالة لإعادة التحقق يدوياً إذا لزم الأمر
+    checkAuth: loadUser
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

@@ -7,13 +7,19 @@ export const authApi = {
     return response.data;
   },
 
+  // تسجيل بائع جديد
+  registerVendor: async (vendorData) => {
+    const response = await api.post('/auth/vendor/register', vendorData);
+    return response.data;
+  },
+
   // تسجيل الدخول
   login: async (credentials) => {
     const response = await api.post('/auth/login', credentials);
     return response.data;
   },
 
-  // جلب بيانات المستخدم الحالي (للتحقق من الجلسة)
+  // جلب بيانات المستخدم الحالي
   getMe: async () => {
     const response = await api.get('/auth/me');
     return response.data;
@@ -25,7 +31,7 @@ export const authApi = {
     return response.data;
   },
 
-  // تسجيل الخروج (مسح الكوكيز من السيرفر)
+  // تسجيل الخروج
   logout: async () => {
     const response = await api.get('/auth/logout');
     return response.data;

@@ -1,66 +1,80 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
-import { Filter, RotateCcw } from 'lucide-react';
+import Card from '../../components/ui/Card';
+import { Filter, RotateCcw , Search} from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const ProductFilter = ({ categories, filters, onFilterChange, onClearFilters }) => {
+  const { t } = useTranslation();
+
   // تحويل التصنيفات لخيارات Select
   const categoryOptions = [
-    { value: '', label: 'جميع التصنيفات' },
+    { value: '', label: t('shop.all_categories') || 'All Categories' },
     ...categories.map(cat => ({ value: cat.id, label: cat.name }))
   ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // يتم تطبيق التغيير فوراً لتحديث القائمة بشكل ديناميكي
     onFilterChange({ ...filters, [name]: value });
   };
 
+  // تحديد ما إذا كانت هناك فلاتر مطبقة حاليًا (لإظهار زر إعادة الضبط)
+  const hasFiltersApplied = filters.keyword || filters.category;
+
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 h-fit sticky top-20">
-      <div className="flex items-center justify-between mb-4 border-b pb-2">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          تصفية المنتجات
+    <Card
+      // تم تغيير top-24 إلى top-20 ليتناسب بشكل أفضل مع الهيدر الثابت
+      className="shadow-xl h-fit sticky top-20 transform transition-all duration-300"
+    >
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-3">
+          <Filter className="h-6 w-6 text-primary-600" />
+          {t('shop.filter') || 'Filter Products'}
         </h3>
-        <button
-          onClick={onClearFilters}
-          className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-        >
-          <RotateCcw className="h-3 w-3" />
-          إعادة تعيين
-        </button>
+        {/* زر إعادة الضبط - يظهر فقط عندما تكون هناك فلاتر مطبقة */}
+        {hasFiltersApplied && (
+          <button
+            onClick={onClearFilters}
+            className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 transition-colors group"
+            title={t('common.reset') || 'Reset Filters'}
+          >
+            <RotateCcw className="h-4 w-4 group-hover:rotate-12 transition-transform duration-200" />
+            <span className="hidden sm:inline">{t('common.reset') || 'Reset'}</span>
+          </button>
+        )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* بحث بالكلمة */}
-        <div>
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
           <Input
-            label="بحث"
+            label={t('common.search')}
             name="keyword"
-            placeholder="اسم المنتج..."
+            placeholder={t('common.search_placeholder')}
             value={filters.keyword || ''}
             onChange={handleChange}
+            icon={<Search className="h-5 w-5" />}
           />
-        </div>
+        </motion.div>
 
         {/* تصنيف */}
-        <div>
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.2 }}>
           <Select
-            label="التصنيف"
+            label={t('product.category') || 'Category'}
             name="category"
             options={categoryOptions}
             value={filters.category || ''}
             onChange={handleChange}
           />
-        </div>
+        </motion.div>
 
-        {/* زر التطبيق (اختياري لأن التحديث فوري) */}
-        <Button className="w-full mt-2" onClick={() => onFilterChange(filters)}>
-          بحث
-        </Button>
+        {/* تم حذف زر التطبيق لأنه تحديث فوري (ديناميكي) */}
       </div>
-    </div>
+    </Card>
   );
 };
 
