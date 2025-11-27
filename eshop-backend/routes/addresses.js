@@ -10,17 +10,15 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-// تطبيق الحماية على جميع المسارات (يجب أن يكون المستخدم مسجلاً)
+// حماية جميع المسارات (يجب أن يكون المستخدم مسجلاً للدخول ولديه توكن)
 router.use(protect);
 
-// المسار: /api/addresses
 router.route('/')
-  .get(getAddresses) // عرض كل العناوين
-  .post(addAddress); // إضافة عنوان جديد
+  .get(getAddresses)
+  .post(addAddress);
 
-// المسار: /api/addresses/:id
 router.route('/:id')
-  .put(updateAddress)    // تعديل عنوان موجود
-  .delete(deleteAddress); // حذف عنوان
+  .put(updateAddress)
+  .delete(deleteAddress);
 
 module.exports = router;

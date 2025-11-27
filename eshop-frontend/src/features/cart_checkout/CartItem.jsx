@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCart } from '../../context/CartContext';
+import { useSystem } from '../../context/SystemContext'; // استيراد السياق
 import { Trash2, Plus, Minus, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -7,14 +8,15 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-
 const CartItem = ({ item }) => {
   const { t, i18n } = useTranslation();
   const { addToCart, removeFromCart } = useCart();
-  const priceSymbol = t('common.currency') || '$';
+  const { config } = useSystem(); // الحصول على الإعدادات
   const isRTL = i18n.dir() === 'rtl';
 
-  // معالجة رابط الصورة
+  // العملة الديناميكية
+  const priceSymbol = config?.currency?.symbol || t('common.currency') || '$';
+
   const API_BASE_URL = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL.replace('/api', '')
     : 'http://localhost:5000';
@@ -27,7 +29,6 @@ const CartItem = ({ item }) => {
 
   const handleQuantityChange = (amount) => {
     if (item.quantity + amount > 0 && item.quantity + amount <= item.stock) {
-      // نرسل الفرق (+1 أو -1) ليتم معالجته في الباك إند كـ addToCart
       addToCart(item.product_id, amount);
     } else if (item.quantity + amount > item.stock) {
         toast.warn(t('cart.stock_limit_reached') || 'Stock limit reached for this product.');
@@ -39,7 +40,6 @@ const CartItem = ({ item }) => {
   return (
     <div className="flex items-center p-4 sm:p-6 bg-white dark:bg-dark-card shadow-lg rounded-xl border border-gray-100 dark:border-gray-800 transition-shadow">
 
-      {/* 1. صورة المنتج */}
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
         <Link to={`/products/${item.product_id}`}>
           <img
@@ -51,7 +51,6 @@ const CartItem = ({ item }) => {
         </Link>
       </div>
 
-      {/* 2. التفاصيل */}
       <div className="ml-4 rtl:mr-4 flex-1 flex flex-col justify-between h-full">
         <div className="flex justify-between text-base font-medium text-gray-900 dark:text-white mb-2">
           <h3 className="truncate max-w-[200px] sm:max-w-none">
@@ -64,15 +63,12 @@ const CartItem = ({ item }) => {
           </p>
         </div>
 
-        {/* سعر الوحدة */}
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {t('product.unit_price') || 'Unit Price'}: {priceSymbol}{Number(item.price).toFixed(2)}
         </p>
 
-        {/* 3. التحكم بالكمية والإجراءات */}
         <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm gap-3">
 
-          {/* التحكم بالكمية */}
           <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm">
             <button
               onClick={() => handleQuantityChange(-1)}
@@ -93,7 +89,6 @@ const CartItem = ({ item }) => {
             </button>
           </div>
 
-          {/* زر الحذف */}
           <button
             type="button"
             onClick={() => removeFromCart(item.id)}

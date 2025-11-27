@@ -1,40 +1,32 @@
 const { pool } = require('../config/database');
 const asyncHandler = require('../utils/asyncHandler');
 
-// @desc    Get active banners for homepage
-// @route   GET /api/public/banners
-// @access  Public
 exports.getBanners = asyncHandler(async (req, res, next) => {
-  // جلب البنرات النشطة فقط وترتيبها حسب الأولوية (sort_order)
-  const query = `
-    SELECT * FROM banners
-    WHERE is_active = true
-    ORDER BY sort_order ASC
-  `;
-
+  const query = `SELECT * FROM banners WHERE is_active = true ORDER BY sort_order ASC`;
   const result = await pool.query(query);
-
-  res.status(200).json({
-    success: true,
-    count: result.rows.length,
-    data: result.rows
-  });
+  res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
 });
 
-// @desc    Get public bootstrap configuration
-// @route   GET /api/public/bootstrap
-// @access  Public
 exports.getBootstrap = asyncHandler(async (req, res, next) => {
-  // إرجاع إعدادات عامة للفرونت إند (مثل العملة، اسم الموقع، حالة الصيانة)
-  // يمكن لاحقاً جلب هذه البيانات من جدول 'settings' إذا تم إنشاؤه
+  const result = await pool.query('SELECT key, value FROM system_configs');
+  const dbSettings = result.rows.reduce((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+  }, {});
+
   const config = {
-    appName: 'EShop',
     currency: {
-      code: 'USD',
-      symbol: '$'
+      code: 'MAD',
+      symbol: dbSettings.currency_symbol || 'د.م.'
     },
-    supportEmail: 'support@eshop.com',
-    maintenanceMode: false
+    taxRate: parseFloat(dbSettings.tax_rate || 0.15),
+    shippingFee: parseFloat(dbSettings.shipping_fee || 20),
+    freeShippingThreshold: parseFloat(dbSettings.free_shipping_threshold || 500),
+    paymentMethods: {
+        cod: dbSettings.enable_cod !== 'false',
+        stripe: dbSettings.enable_stripe === 'true'
+    },
+    siteName: dbSettings.site_name || 'EShop Morocco'
   };
 
   res.status(200).json({

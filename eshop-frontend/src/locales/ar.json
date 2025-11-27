@@ -5,7 +5,7 @@
     "success": "تم بنجاح",
     "search": "بحث",
     "search_placeholder": "ابحث عن منتج...",
-    "currency": "ر.س",
+    "currency": "د.م.",
     "language": "اللغة",
     "theme": "المظهر",
     "light": "فاتح",
@@ -200,7 +200,8 @@
     "edit_product": "تعديل المنتج",
     "add_category": "إضافة فئة",
     "category_name_placeholder": "اسم الفئة الجديدة",
-    "default_site_name": "منصة EShop"
+    "default_site_name": "منصة EShop",
+    "payments": "المدفوعات"
   },
   "vendor": {
     "dashboard_overview": "نظرة عامة على لوحة البائع",

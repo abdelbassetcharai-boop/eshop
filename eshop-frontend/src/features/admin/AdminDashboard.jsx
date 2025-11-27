@@ -5,6 +5,7 @@ import { Users, ShoppingBag, DollarSign, Package, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Card from '../../components/ui/Card';
+import { useSystem } from '../../context/SystemContext'; // استيراد السياق
 
 const StatCard = ({ title, value, icon: Icon, color, delay }) => (
   <motion.div
@@ -38,6 +39,7 @@ const formatCurrency = (value, currency) => {
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
+  const { config } = useSystem(); // الحصول على العملة من الإعدادات
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,8 +68,8 @@ const AdminDashboard = () => {
     );
   }
 
-  // عملة افتراضية إذا لم تكن موجودة في الترجمة
-  const currencySymbol = t('common.currency') || '$';
+  // العملة الديناميكية
+  const currencySymbol = config?.currency?.symbol || t('common.currency') || '$';
 
   return (
     <div className="space-y-6">
@@ -122,9 +124,7 @@ const AdminDashboard = () => {
         />
       </div>
 
-      {/* يمكن إضافة رسوم بيانية أو جداول ملخص هنا مستقبلاً */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* مثال لمكان الرسوم البيانية */}
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

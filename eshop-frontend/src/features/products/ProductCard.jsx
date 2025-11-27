@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useSystem } from '../../context/SystemContext'; // استدعاء سياق النظام
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { ShoppingCart, Star } from 'lucide-react';
@@ -10,6 +11,7 @@ import { motion } from 'framer-motion';
 const ProductCard = ({ product }) => {
   const { t } = useTranslation();
   const { addToCart } = useCart();
+  const { config } = useSystem(); // الحصول على الإعدادات
 
   // 1. معالجة رابط الصورة
   const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -23,10 +25,13 @@ const ProductCard = ({ product }) => {
   };
 
   const imageUrl = getImageUrl(product.image_url);
-  const priceSymbol = t('common.currency') || '$';
+
+  // استخدام العملة من الإعدادات، أو الافتراضي من الترجمة كخيار أخير
+  const priceSymbol = config?.currency?.symbol || t('common.currency') || '$';
+
   const isOutOfStock = product.stock === 0;
 
-  // افتراض تقييم (حيث أن الباك إند لا يوفر متوسط التقييم مباشرة في القائمة)
+  // افتراض تقييم
   const rating = product.average_rating || 4;
 
   return (
@@ -58,7 +63,7 @@ const ProductCard = ({ product }) => {
                     <Star key={i} className={`h-4 w-4 ${i < rating ? 'fill-current' : 'text-gray-300 dark:text-gray-600'}`} />
                 ))}
             </div>
-            {/* الفئة (افتراضي) */}
+            {/* الفئة */}
             <span className="text-xs text-gray-500 dark:text-gray-400 italic">{product.category_name || t('product.unknown')}</span>
         </div>
 

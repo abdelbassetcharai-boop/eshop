@@ -15,9 +15,9 @@ gsap.registerPlugin(ScrollTrigger);
 
 // قائمة صور الخلفية (يجب استبدالها بمسارات صور حقيقية)
 const backgroundImages = [
-    '/assets/img/hero-bg-1.jpg',
-    '/assets/img/hero-bg-2.jpg',
-    '/assets/img/hero-bg-3.jpg',
+    '/src/assets/online-shopping-concept.jpg',
+    '/src/assets/2151896833.jpg',
+    '/src/assets/online-shopping-concept.jpg',
 ];
 
 const HomePage = () => {

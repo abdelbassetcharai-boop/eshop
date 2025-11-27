@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion'; // لاستخدام تأثيرات الانتقال بين الصفحات
+import { AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
@@ -12,7 +12,11 @@ import Register from './features/auth/Register';
 import RegisterVendor from './features/auth/RegisterVendor';
 import Profile from './features/auth/Profile';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import OrderDetailsPage from './pages/OrderDetailsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ForgotPassword from './features/auth/ForgotPassword'; // استيراد
+import ResetPassword from './features/auth/ResetPassword'; // استيراد
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -23,12 +27,9 @@ function App() {
   const location = useLocation();
 
   return (
-    // AnimatePresence يسمح بتشغيل أنيميشن عند خروج المكونات (Unmount)
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Layout />}>
-
-          {/* --- المسارات العامة (Public Routes) --- */}
           <Route index element={<HomePage />} />
           <Route path="shop" element={<ShopPage />} />
           <Route path="products/:id" element={<ProductDetailsPage />} />
@@ -36,25 +37,27 @@ function App() {
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="register-vendor" element={<RegisterVendor />} />
+          <Route path="verify-email/:token" element={<VerifyEmailPage />} />
 
-          {/* --- مسارات العملاء المحمية (Customer Routes) --- */}
+          {/* مسارات استعادة كلمة المرور */}
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="reset-password" element={<ResetPassword />} />
+
           <Route element={<ProtectedRoute />}>
              <Route path="profile" element={<Profile />} />
              <Route path="orders" element={<OrderHistoryPage />} />
+             <Route path="orders/:id" element={<OrderDetailsPage />} />
              <Route path="checkout" element={<CheckoutPage />} />
           </Route>
 
-          {/* --- مسارات المدير (Admin Routes) --- */}
           <Route path="/admin" element={<AdminRoute />}>
              <Route path="dashboard" element={<AdminDashboardPage />} />
           </Route>
 
-          {/* --- مسارات البائع (Vendor Routes) --- */}
           <Route path="/vendor" element={<VendorRoute />}>
              <Route path="dashboard" element={<VendorDashboardPage />} />
           </Route>
 
-          {/* --- صفحة 404 --- */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

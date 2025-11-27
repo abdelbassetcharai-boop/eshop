@@ -18,8 +18,6 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // معرفة الصفحة التي جاء منها المستخدم (لإعادته إليها بعد الدخول)
   const from = location.state?.from?.pathname || '/';
 
   const handleChange = (e) => {
@@ -29,9 +27,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
     const success = await login(formData);
-
     setIsSubmitting(false);
     if (success) {
       navigate(from, { replace: true });
@@ -41,7 +37,6 @@ const Login = () => {
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
 
-      {/* خلفية زخرفية (Background Blobs) */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-500/20 rounded-full blur-3xl animate-pulse-slow pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-secondary-500/20 rounded-full blur-3xl animate-pulse-slow pointer-events-none delay-1000"></div>
 
@@ -59,7 +54,7 @@ const Login = () => {
             {t('auth.login_title')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('hero.subtitle').split('.')[0]} {/* نص ترحيبي قصير */}
+            {t('hero.subtitle').split('.')[0]}
           </p>
         </div>
 
@@ -92,9 +87,10 @@ const Login = () => {
                 icon={<Lock className="h-5 w-5" />}
               />
               <div className="flex justify-end mt-1">
-                <a href="#" className="text-xs font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">
-                  {t('auth.forgot_password') || 'Forgot Password?'}
-                </a>
+                {/* رابط نسيت كلمة المرور الجديد */}
+                <Link to="/forgot-password" className="text-xs font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 transition-colors">
+                  {t('auth.forgot_password') || 'نسيت كلمة المرور؟'}
+                </Link>
               </div>
             </div>
           </div>

@@ -6,49 +6,42 @@ const SystemContext = createContext();
 export const useSystem = () => useContext(SystemContext);
 
 export const SystemProvider = ({ children }) => {
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState({
+    currency: { code: 'MAD', symbol: 'د.م.' },
+    taxRate: 0.15,
+    shippingFee: 20,
+    freeShippingThreshold: 500,
+    paymentMethods: { cod: true, stripe: false },
+    siteName: 'EShop'
+  });
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSystemData = async () => {
       try {
-        // جلب البيانات العامة (البنرات والإعدادات)
-        // نستخدم Promise.allSettled لضمان عدم توقف التطبيق لو فشل أحدهما
         const results = await Promise.allSettled([
           api.get('/public/bootstrap'),
           api.get('/public/banners')
         ]);
 
-        const configRes = results[0];
-        const bannersRes = results[1];
-
-        if (configRes.status === 'fulfilled' && configRes.value.data.success) {
-            setConfig(configRes.value.data.data);
+        if (results[0].status === 'fulfilled' && results[0].value.data.success) {
+            setConfig(prev => ({ ...prev, ...results[0].value.data.data }));
         }
-
-        if (bannersRes.status === 'fulfilled' && bannersRes.value.data.success) {
-            setBanners(bannersRes.value.data.data);
+        if (results[1].status === 'fulfilled' && results[1].value.data.success) {
+            setBanners(results[1].value.data.data);
         }
-
       } catch (error) {
         console.error('Failed to load system data', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchSystemData();
   }, []);
 
-  const value = {
-    config,
-    banners,
-    loading
-  };
-
   return (
-    <SystemContext.Provider value={value}>
+    <SystemContext.Provider value={{ config, banners, loading }}>
       {children}
     </SystemContext.Provider>
   );

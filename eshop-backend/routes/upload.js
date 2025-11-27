@@ -2,21 +2,29 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/uploadMiddleware');
 const { protect, authorize } = require('../middleware/auth');
+const ErrorResponse = require('../utils/errorResponse');
 
 // المسار: POST /api/upload
-// الوصف: رفع صورة منتج (مسموح للأدمن فقط)
-router.post('/', protect, authorize('admin'), upload.single('image'), (req, res) => {
-  // التأكد من وجود ملف في الطلب
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No file uploaded' });
-  }
+router.post('/', protect, authorize('admin', 'vendor'), (req, res, next) => {
+  // استخدام دالة upload داخل الـ route للتحكم في الأخطاء
+  const uploadSingle = upload.single('image');
 
-  // إرجاع مسار الصورة (مع استبدال الشرطة المائلة العكسية في ويندوز)
-  // هذا المسار سيتم تخزينه في قاعدة البيانات في حقل image_url
-  res.status(200).json({
-    success: true,
-    message: 'Image uploaded successfully',
-    data: `/${req.file.path.replace(/\\/g, '/')}`
+  uploadSingle(req, res, (err) => {
+    if (err) {
+      console.error("Upload Error:", err);
+      // إذا كان الخطأ من Multer أو Cloudinary
+      return next(new ErrorResponse(err.message, 400));
+    }
+
+    if (!req.file) {
+      return next(new ErrorResponse('Please upload a file', 400));
+    }
+
+    // النجاح: إرجاع الرابط
+    res.status(200).json({
+      success: true,
+      data: req.file.path // رابط Cloudinary المباشر
+    });
   });
 });
 

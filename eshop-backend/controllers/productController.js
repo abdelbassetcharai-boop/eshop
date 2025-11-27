@@ -99,29 +99,62 @@ exports.getProduct = asyncHandler(async (req, res, next) => {
 // @route   POST /api/products
 // @access  Private (Admin or Vendor)
 exports.createProduct = asyncHandler(async (req, res, next) => {
-  // التحقق من الصلاحية: يجب أن يكون vendor أو admin
+  // السماح للأدمن والبائع فقط
   if (req.user.role !== 'admin' && req.user.role !== 'vendor') {
       return next(new ErrorResponse('Not authorized to create products', 403));
   }
 
-  // ربط المنتج بالبائع الحالي
-  const vendorId = req.user.id;
+  // تحديد البائع: إذا كان أدمن، يمكنه تحديد بائع آخر (اختياري)، وإلا فهو البائع
+  let vendorId = req.user.id;
+  if (req.user.role === 'admin' && req.body.vendor_id) {
+      vendorId = req.body.vendor_id;
+  }
 
-  const { name, description, price, stock, category_id, image_url } = req.body;
+  // استخراج البيانات مع قيم افتراضية آمنة
+  const {
+      name,
+      description = '',
+      price,
+      stock = 0,
+      category_id,
+      image_url = '',
+      images = [], // مصفوفة صور إضافية
+      video_url = ''
+  } = req.body;
+
+  // التحقق من الحقول الإجبارية
+  if (!name || !price || !category_id) {
+      return next(new ErrorResponse('Please provide name, price, and category', 400));
+  }
 
   const query = `
-    INSERT INTO products (name, description, price, stock, category_id, image_url, vendor_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO products (name, description, price, stock, category_id, image_url, vendor_id, images, video_url)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *
   `;
 
-  const values = [name, description, price, stock, category_id, image_url, vendorId];
-  const result = await pool.query(query, values);
+  const values = [
+      name,
+      description,
+      price,
+      stock,
+      category_id,
+      image_url,
+      vendorId,
+      images, // Postgres يقبل المصفوفات مباشرة إذا كان العمود معرف كـ text[]
+      video_url
+  ];
 
-  res.status(201).json({
-    success: true,
-    data: result.rows[0],
-  });
+  try {
+      const result = await pool.query(query, values);
+      res.status(201).json({
+        success: true,
+        data: result.rows[0],
+      });
+  } catch (err) {
+      console.error("Create Product Error:", err);
+      return next(new ErrorResponse('Failed to create product', 500));
+  }
 });
 
 // @desc    Update product

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef  } from 'react';
 import { useCart } from '../../context/CartContext';
+import { useSystem } from '../../context/SystemContext'; // استيراد السياق
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import ReviewForm from './ReviewForm'; // يتم استدعاءه هنا
+import ReviewForm from './ReviewForm';
 import Card from '../../components/ui/Card';
 import { Star, Minus, Plus, ShoppingCart, PlayCircle, Image as ImageIcon, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,13 +13,12 @@ import { gsap } from 'gsap';
 const ProductDetail = ({ product, reviews, onReviewAdded }) => {
   const { t, i18n } = useTranslation();
   const { addToCart } = useCart();
+  const { config } = useSystem(); // الحصول على الإعدادات
   const [quantity, setQuantity] = useState(1);
-  const [activeMedia, setActiveMedia] = useState(null); // { type: 'image' | 'video', url: string }
+  const [activeMedia, setActiveMedia] = useState(null);
 
-  // GSAP Refs
   const detailsRef = useRef(null);
 
-  // --- إعداد روابط الصور والفيديو ---
   const API_BASE_URL = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL.replace('/api', '')
     : 'http://localhost:5000';
@@ -29,12 +29,14 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
     return `${API_BASE_URL}${url.startsWith('/') ? url : '/' + url}`;
   };
 
+  // العملة الديناميكية
+  const currencySymbol = config?.currency?.symbol || t('common.currency') || '$';
+
   const allImages = [
     product.image_url,
     ...(product.images || [])
   ].filter(Boolean);
 
-  // تهيئة الوسائط عند تحميل المنتج
   useEffect(() => {
     if (product) {
       const defaultUrl = getUrl(product.image_url) || getUrl('https://placehold.co/600x400');
@@ -45,7 +47,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
     }
   }, [product]);
 
-  // تحريك ظهور التفاصيل باستخدام GSAP
   useEffect(() => {
     if (detailsRef.current) {
       gsap.from(detailsRef.current.children, {
@@ -73,19 +74,16 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
   if (!activeMedia) return null;
 
   const handleReviewAdded = () => {
-  if (onReviewAdded) {
-    onReviewAdded(product.id);
-  }
-};
+    if (onReviewAdded) {
+        onReviewAdded(product.id);
+    }
+  };
 
   return (
     <Card className="shadow-lg p-0">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 lg:p-8">
 
-        {/* --- قسم المعرض (الصور والفيديو) --- */}
         <div className="space-y-4">
-
-          {/* 1. العرض الرئيسي (Main View) */}
           <motion.div
              initial={{ opacity: 0, scale: 0.98 }}
              animate={{ opacity: 1, scale: 1 }}
@@ -94,7 +92,7 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
           >
             {activeMedia.type === 'video' ? (
               <video
-                key={activeMedia.url} // مفتاح لإعادة التحميل عند تغيير الرابط
+                key={activeMedia.url}
                 src={activeMedia.url}
                 controls
                 autoPlay
@@ -117,7 +115,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
             )}
           </motion.div>
 
-          {/* 2. شريط المصغرات (Thumbnails) */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {allImages.map((img, index) => {
               const fullUrl = getUrl(img);
@@ -137,7 +134,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
               );
             })}
 
-            {/* مصغر الفيديو */}
             {product.video_url && (
               <button
                 onClick={() => setActiveMedia({ type: 'video', url: getUrl(product.video_url) })}
@@ -154,11 +150,9 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
           </div>
         </div>
 
-        {/* --- معلومات المنتج (GSAP Controlled) --- */}
         <div ref={detailsRef} className="flex flex-col space-y-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white leading-snug">{product.name}</h1>
 
-          {/* التقييم */}
           <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <div className="flex text-yellow-500 dark:text-yellow-400">
               {[...Array(5)].map((_, i) => (
@@ -173,17 +167,14 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
             </span>
           </div>
 
-          {/* السعر */}
           <div className="text-4xl font-extrabold text-primary-600 dark:text-primary-400">
-            {t('common.currency')} {Number(product.price).toFixed(2)}
+            {currencySymbol} {Number(product.price).toFixed(2)}
           </div>
 
-          {/* الوصف */}
           <div className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-full">
             <p>{product.description}</p>
           </div>
 
-          {/* التحكم بالكمية والمخزون */}
           <div className="border-t border-gray-100 dark:border-gray-700 pt-6 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -239,7 +230,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
         </div>
       </div>
 
-      {/* قسم التقييمات والمراجعات */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -252,7 +242,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* عرض التقييمات */}
           <div className="lg:col-span-2 space-y-6">
             {reviews.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400 italic p-4 border border-dashed rounded-xl">
@@ -276,7 +265,6 @@ const ProductDetail = ({ product, reviews, onReviewAdded }) => {
             )}
           </div>
 
-          {/* نموذج إضافة التقييم */}
           <div className="lg:col-span-1">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               {t('product.add_review') || 'Add Your Review'}
